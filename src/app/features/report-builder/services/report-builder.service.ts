@@ -34,14 +34,6 @@ export class ReportBuilderService {
     return this.http.get<DataSourceInfo[]>(`${this.apiUrl}/data-sources`);
   }
 
-  getSchema(dataSourceId: string): Observable<SchemaInfo> {
-    return this.http.get<SchemaInfo>(`${this.apiUrl}/data-sources/${dataSourceId}/schema`);
-  }
-
-  getReport(id: string): Observable<ReportDefinition> {
-    return this.http.get<ReportDefinition>(`${this.apiUrl}/reports/${id}`);
-  }
-
   previewReport(report: ReportDefinition, limit = 100): Observable<PreviewResult> {
     return this.http.post<PreviewResult>(`${this.apiUrl}/reports/preview`, {
       ...report,
@@ -84,5 +76,21 @@ export class ReportBuilderService {
 
   deleteReport(reportId: string) {
     return this.http.delete(`${this.apiUrl}/reports/${reportId}`);
+  }
+
+  getSchema(dataSourceId: string): Observable<SchemaInfo> {
+    return this.http.get<SchemaInfo>(`${this.apiUrl}/data-sources/${dataSourceId}/schema`);
+  }
+
+  introspectSchema(connectionString: string, type: string): Observable<SchemaInfo> {
+    return this.http.post<SchemaInfo>(`${this.apiUrl}/data-sources/introspect`, { connectionString, type });
+  }
+
+  createDataSource(payload: { name: string; type: string; connectionString: string; schema?: SchemaInfo }): Observable<DataSourceInfo> {
+    return this.http.post<DataSourceInfo>(`${this.apiUrl}/data-sources`, payload);
+  }
+
+  getReport(id: string): Observable<ReportDefinition> {
+    return this.http.get<ReportDefinition>(`${this.apiUrl}/reports/${id}`);
   }
 }

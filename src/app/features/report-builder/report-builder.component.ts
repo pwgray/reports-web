@@ -57,11 +57,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
       <!-- Step Content -->
       <div class="step-content">
         <!-- Step 1: Data Source Selection -->
-        <app-datasource-selector 
+                <app-datasource-selector 
           *ngIf="currentStep === 1"
           [dataSources]="dataSources$ | async"
           [selected]="report?.dataSource && report?.dataSource?.id ? report.dataSource : null"
           (dataSourceSelected)="onDataSourceSelected($event)"
+          (dataSourceCreated)="onDataSourceCreated($event)"
           (nextClicked)="nextStep()">
         </app-datasource-selector>
 
@@ -140,12 +141,12 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 })
 export class ReportBuilderComponent implements OnInit, OnDestroy {
   currentStep = 1;
-  report: ReportDefinition = this.initializeReport();  
+  report: ReportDefinition = this.initializeReport();
   dataSources$!: ReturnType<ReportBuilderService['getDataSources']>;
   schema$ = new BehaviorSubject<SchemaInfo | null>(null);
   private destroy$ = new Subject<void>();
   selectedFormat = 'table';
-  
+
   constructor(
     private reportBuilderService: ReportBuilderService,
     private router: Router,
@@ -156,11 +157,11 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Load by route param if present
     const routeId = this.route.snapshot.paramMap.get('id');
-    
+
     console.log('Route ID:' + routeId);
     if (routeId) {
       this.loadExistingReport(routeId);
-      
+
     } else {
       // Seed from template or report id if navigated from list page
       const nav = this.router.getCurrentNavigation();
@@ -191,6 +192,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
         this.snackBar.open('Failed to save report', 'Close', { duration: 3000 });
       }
     });
+  }
+
+  onDataSourceCreated(ds: DataSourceInfo) {
+    this.snackBar.open('Data source created', 'Close', { duration: 3000 });
+    this.dataSources$ = this.reportBuilderService.getDataSources();
+    this.onDataSourceSelected(ds);
   }
 
   onGroupingChanged($event: any) {
@@ -296,7 +303,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       next: (r) => {
         console.log('Raw report from API:', r);
         console.log('Selected fields from API:', r.selectedFields);
-        
+
         // Map API report to builder model
         this.report = {
           id: r.id,
@@ -311,15 +318,15 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
           layout: r.layout ?? (r as any).layoutConfig ?? {},
           parameters: r.parameters ?? []
         } as ReportDefinition;
-        
+
         console.log('Mapped report:', this.report);
         console.log('Mapped selected fields:', this.report.selectedFields);
-        
+
         // Load schema for the data source to populate field selector
         if (this.report.dataSource?.id) {
           this.loadSchema(this.report.dataSource.id);
         }
-        
+
         this.reportBuilderService.updateCurrentReport(this.report);
       },
       error: (error) => {
