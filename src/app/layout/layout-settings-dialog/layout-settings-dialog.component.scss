@@ -1,0 +1,185 @@
+.layout-settings-dialog {
+  min-width: 600px;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+
+  .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fafafa;
+
+    h2 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #2c3e50;
+      font-size: 20px;
+      font-weight: 600;
+
+      fa-icon {
+        color: #007bff;
+      }
+    }
+
+    .close-btn {
+      color: #6c757d;
+      
+      &:hover {
+        color: #dc3545;
+      }
+    }
+  }
+
+  .dialog-content {
+    padding: 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+
+    .settings-section {
+      margin-bottom: 32px;
+
+      h3 {
+        margin: 0 0 16px 0;
+        color: #2c3e50;
+        font-size: 16px;
+        font-weight: 600;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .setting-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 16px;
+        align-items: flex-start;
+
+        &.full-width {
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        mat-form-field {
+          flex: 1;
+          min-width: 200px;
+        }
+
+        mat-checkbox {
+          margin-top: 8px;
+        }
+      }
+    }
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid #e0e0e0;
+    background: #fafafa;
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 100px;
+
+      &[color="primary"] {
+        background: #007bff;
+        color: white;
+
+        &:hover {
+          background: #0056b3;
+        }
+      }
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .layout-settings-dialog {
+    min-width: 90vw;
+    max-width: 95vw;
+
+    .dialog-content {
+      padding: 16px;
+
+      .settings-section {
+        .setting-row {
+          flex-direction: column;
+          gap: 12px;
+
+          mat-form-field {
+            min-width: 100%;
+          }
+        }
+      }
+    }
+
+    .dialog-actions {
+      flex-direction: column;
+      gap: 8px;
+
+      button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+// Material Design overrides
+::ng-deep {
+  .mat-mdc-dialog-container {
+    .mat-mdc-dialog-surface {
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  .mat-mdc-form-field {
+    .mat-mdc-form-field-flex {
+      background: white;
+    }
+  }
+
+  .mat-mdc-checkbox {
+    .mdc-checkbox {
+      .mdc-checkbox__background {
+        border-color: #007bff;
+      }
+    }
+
+    &.mat-mdc-checkbox-checked {
+      .mdc-checkbox {
+        .mdc-checkbox__background {
+          background-color: #007bff;
+          border-color: #007bff;
+        }
+      }
+    }
+  }
+
+  .mat-mdc-select {
+    .mat-mdc-select-value {
+      color: #2c3e50;
+    }
+  }
+
+  .mat-mdc-option {
+    &.mat-mdc-option-active {
+      background: #e3f2fd;
+    }
+
+    &.mat-mdc-selected {
+      background: #007bff;
+      color: white;
+    }
+  }
+}

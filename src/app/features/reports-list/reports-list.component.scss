@@ -1,0 +1,28 @@
+.reports-page { padding: 24px; display: grid; gap: 24px; }
+    .page-header { display:flex; align-items:center; justify-content: space-between; }
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:6px; border: 1px solid transparent; }
+    .btn-primary { background: var(--primary-color); color: var(--text-primary); }
+
+    .controls { display:flex; align-items:flex-end; justify-content: space-between; gap: 16px; }
+    .controls .search { flex: 1; }
+    .controls input { width: 100%; padding: 8px 10px; border:1px solid var(--border-color); border-radius:6px; background: var(--bg-secondary); color: var(--text-primary); }
+    .controls input:focus { outline:none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1); }
+    .controls .sort { display:flex; align-items:center; gap:8px; }
+    .controls select { padding: 8px 10px; border:1px solid var(--border-color); border-radius:6px; background: var(--bg-secondary); color: var(--text-primary); }
+
+    .tiles-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .tile-card { position: relative; display:flex; flex-direction:column; gap: 6px; padding:16px; border:1px solid var(--border-color); border-radius:8px; background: var(--bg-primary); cursor:pointer; transition: box-shadow .15s ease, transform .05s ease; }
+    .tile-card:hover { box-shadow: var(--shadow-md, 0 1px 3px rgba(0,0,0,0.1)); }
+    .tile-card:active { transform: translateY(1px); }
+    .card-icon { width: 36px; height:36px; display:grid; place-items:center; border:1px solid var(--border-color); border-radius:6px; color: var(--primary-color); background: var(--bg-secondary); }
+    .card-title { font-weight:600; }
+    .card-desc { color: var(--text-secondary); font-size: 12px; min-height: 30px; }
+
+    /* Saved report card specific */
+    .report-card .card-actions { position:absolute; top:8px; right:8px; display:flex; gap:6px; opacity: 0; transition: opacity .15s ease; }
+    .report-card:hover .card-actions, .report-card:focus .card-actions { opacity: 1; }
+    .icon-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; border:1px solid var(--border-color); background: var(--bg-primary); cursor:pointer; }
+    .icon-btn:hover { background: var(--bg-secondary); }
+    .icon-btn.danger { border-color: #ef4444; color: #ef4444; }
+
+    .empty { color: var(--text-secondary); padding: 16px; }
