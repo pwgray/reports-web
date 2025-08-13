@@ -57,6 +57,73 @@ export interface LayoutConfiguration {
   repeatHeaderOnEachPage?: boolean;
   fitToPage?: boolean;
   allowPageBreak?: boolean;
+
+  // New: optional layout content
+  charts?: ChartConfig[];
+  widgets?: WidgetConfig[];
+  // If provided, the data table is included and should render last
+  dataTable?: DataTableConfig;
+}
+
+// Reusable field reference for charts/widgets/table columns
+export interface FieldRef {
+  id?: string;
+  tableName?: string;
+  fieldName?: string;
+  displayName?: string;
+}
+
+// Optional grid placement for dashboard-style layouts
+export interface GridPosition {
+  row?: number;
+  col?: number;
+  width?: number;
+  height?: number;
+}
+
+export type ChartType = 'bar' | 'line' | 'pie' | 'area' | 'column';
+
+export interface ChartSeriesConfig {
+  name?: string;
+  field: FieldRef;
+  aggregation?: AggregationType;
+}
+
+export interface ChartConfig {
+  id: string;
+  title?: string;
+  type: ChartType;
+  x?: FieldRef; // category/date axis
+  y?: FieldRef; // primary value when single-series
+  series?: ChartSeriesConfig[]; // optional multi-series
+  aggregation?: AggregationType; // fallback if y/series not specified
+  options?: {
+    showLegend?: boolean;
+    stacked?: boolean;
+    colorScheme?: string[];
+  };
+  layout?: GridPosition;
+}
+
+export type WidgetType = 'metric' | 'kpi' | 'text' | 'trend';
+
+export interface WidgetConfig {
+  id: string;
+  title?: string;
+  type: WidgetType;
+  field?: FieldRef; // numeric/text backing field for metric/kpi/trend
+  aggregation?: AggregationType;
+  valueFormat?: FieldFormatting;
+  text?: string; // for text widget
+  layout?: GridPosition;
+}
+
+export interface DataTableConfig {
+  enabled?: boolean; // defaults to true if provided
+  columns?: Array<{ field: FieldRef; width?: number }>;
+  showTotals?: boolean;
+  pageSize?: number;
+  zebraStripes?: boolean;
 }
 
 // Define SortField interface

@@ -144,7 +144,8 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   dataSources$!: ReturnType<ReportBuilderService['getDataSources']>;
   schema$ = new BehaviorSubject<SchemaInfo | null>(null);
   private destroy$ = new Subject<void>();
-
+  selectedFormat = 'table';
+  
   constructor(
     private reportBuilderService: ReportBuilderService,
     private router: Router,

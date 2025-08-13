@@ -112,11 +112,12 @@ import { ChartPreviewComponent } from "../chart-preview/chart-preview.component"
 })
 export class PreviewPanelComponent implements OnInit, OnDestroy {
   @Input() report: ReportDefinition = {} as ReportDefinition;
+  @Input() selectedFormat : string = 'table';
 
   previewData: PreviewResult | null = null;
   isLoading = false;
   error: string | null = null;
-  selectedFormat = 'table';
+  
 
   formats = [
     { value: 'table', label: 'Table' },

@@ -1,0 +1,59 @@
+:host {
+  display: block;
+}
+
+.chart-container {
+  width: 100%;
+}
+
+.chart-meta {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+.chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  background: #fff;
+}
+
+.axis {
+  stroke: #9aa0a6;
+  stroke-width: 1;
+}
+
+.tick {
+  stroke: #9aa0a6;
+  stroke-width: 1;
+}
+
+.tick-label {
+  fill: #555;
+  font-size: 10px;
+}
+
+.bar {
+  fill: #4f46e5;
+  opacity: 0.9;
+}
+
+.line {
+  fill: none;
+  stroke: #4f46e5;
+  stroke-width: 2;
+}
+
+.point {
+  fill: #4f46e5;
+}
+
+.empty-chart {
+  padding: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
