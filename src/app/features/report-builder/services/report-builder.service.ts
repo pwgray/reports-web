@@ -90,6 +90,18 @@ export class ReportBuilderService {
     return this.http.post<DataSourceInfo>(`${this.apiUrl}/data-sources`, payload);
   }
 
+  updateDataSource(id: string, payload: { name: string; type: string; connectionString: string; schema?: SchemaInfo }): Observable<DataSourceInfo> {
+    return this.http.put<DataSourceInfo>(`${this.apiUrl}/data-sources/${id}`, payload);
+  }
+
+  deleteDataSource(id: string): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/data-sources/${id}`);
+  }
+
+  getDataSource(id: string): Observable<DataSourceInfo> {
+    return this.http.get<DataSourceInfo>(`${this.apiUrl}/data-sources/${id}`);
+  }
+
   getReport(id: string): Observable<ReportDefinition> {
     return this.http.get<ReportDefinition>(`${this.apiUrl}/reports/${id}`);
   }

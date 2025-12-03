@@ -60,7 +60,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                 <app-datasource-selector 
           *ngIf="currentStep === 1"
           [dataSources]="dataSources$ | async"
-          [selected]="report?.dataSource && report?.dataSource?.id ? report.dataSource : null"
+          [selected]="report.dataSource && report.dataSource.id ? report.dataSource : null"
           (dataSourceSelected)="onDataSourceSelected($event)"
           (dataSourceCreated)="onDataSourceCreated($event)"
           (nextClicked)="nextStep()">

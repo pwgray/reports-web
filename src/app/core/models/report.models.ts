@@ -143,6 +143,19 @@ export interface SelectedField {
   dataType: FieldDataType;
   aggregation?: AggregationType;
   formatting?: FieldFormatting;
+  relatedTable?: RelatedTableConfig; // For related data aggregation or sub-reports
+}
+
+// Configuration for related table fields
+export interface RelatedTableConfig {
+  relationshipId: string; // ID of the relationship from schema
+  relationshipName: string; // Display name of relationship
+  relatedTableName: string; // Name of the related table
+  relatedFieldName: string; // Field from related table to aggregate/display
+  displayMode: 'aggregate' | 'subreport'; // How to display related data
+  aggregation?: AggregationType; // For aggregate mode
+  subReportFields?: string[]; // Fields to include in sub-report mode
+  subReportLimit?: number; // Max records to show in sub-report
 }
 
 // Define AggregationType enum

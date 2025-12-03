@@ -25,23 +25,23 @@ import { LayoutSettingsDialogComponent } from "../layout-settings-dialog/layout-
         </div>
       </div>
 
-      <div class="preview-content" *ngIf="report && report.selectedFields?.length">
+      <div class="preview-content" *ngIf="report && report.selectedFields.length">
         <!-- Report Summary -->
         <div class="report-summary">
           <div class="summary-item">
-            <strong>Data Source:</strong> {{ report.dataSource?.name || 'Not selected' }}
+            <strong>Data Source:</strong> {{ report.dataSource.name || 'Not selected' }}
           </div>
           <div class="summary-item">
-            <strong>Fields:</strong> {{ report.selectedFields?.length || 0 }} selected
+            <strong>Fields:</strong> {{ report.selectedFields.length || 0 }} selected
           </div>
           <div class="summary-item">
-            <strong>Filters:</strong> {{ report.filters?.length || 0 }} applied
+            <strong>Filters:</strong> {{ report.filters.length || 0 }} applied
           </div>
           <div class="summary-item">
-            <strong>Grouping:</strong> {{ report.groupBy?.length || 0 }} groups
+            <strong>Grouping:</strong> {{ report.groupBy.length || 0 }} groups
           </div>
           <div class="summary-item">
-            <strong>Sorting:</strong> {{ report.sorting?.length || 0 }} sorts
+            <strong>Sorting:</strong> {{ report.sorting.length || 0 }} sorts
           </div>
         </div>
 
@@ -115,6 +115,31 @@ import { LayoutSettingsDialogComponent } from "../layout-settings-dialog/layout-
               </div>
             </div>
           </div>
+
+          <!-- Table Relationships -->
+          <div class="structure-section" *ngIf="getTablesInReport().length > 1">
+            <h4><fa-icon [icon]="faChartBar"></fa-icon> Table Relationships</h4>
+            <div class="relationships-info">
+              <div class="relationship-note">
+                <strong>Multi-table Report:</strong> This report combines data from {{ getTablesInReport().length }} tables.
+                The preview shows how master-child relationships will be reflected in the final data.
+              </div>
+              <div class="tables-involved">
+                <div class="table-chip" *ngFor="let table of getTablesInReport()" [class.master-table]="isTableMaster(table)">
+                  <fa-icon [icon]="faTable"></fa-icon>
+                  {{ table }}
+                  <span class="table-role" *ngIf="isTableMaster(table)">Master</span>
+                  <span class="table-role child" *ngIf="!isTableMaster(table)">Child</span>
+                </div>
+              </div>
+              <div class="relationship-explanation">
+                <small>
+                  Master table records are joined with related child table records. 
+                  Each master record may appear multiple times if it has multiple related child records.
+                </small>
+              </div>
+            </div>
+          </div>
         </div>
 
                  <!-- Layout Configuration -->
@@ -158,7 +183,7 @@ import { LayoutSettingsDialogComponent } from "../layout-settings-dialog/layout-
          <div class="data-preview">
            <h3>Sample Data Preview</h3>
            <div class="table-container">
-             <table class="preview-table" [class.grouped-table]="report.groupBy?.length">
+             <table class="preview-table" [class.grouped-table]="report.groupBy.length">
                <thead>
                  <tr>
                    <th *ngFor="let field of report.selectedFields" 
@@ -236,7 +261,7 @@ import { LayoutSettingsDialogComponent } from "../layout-settings-dialog/layout-
             <span class="requirement-icon">✓</span>
             <span>Select a data source</span>
           </div>
-          <div class="requirement" [class.completed]="report.selectedFields?.length">
+          <div class="requirement" [class.completed]="report.selectedFields.length">
             <span class="requirement-icon">✓</span>
             <span>Choose fields to include</span>
           </div>
@@ -286,34 +311,221 @@ export class LayoutPreviewComponent {
     }
 
     getMockData(): any[] {
-      return [
+      return this.generateRelationshipAwareMockData();
+    }
+
+    private generateRelationshipAwareMockData(): any[] {
+      const tablesInReport = this.getTablesInReport();
+      
+      if (tablesInReport.length === 1) {
+        // Single table - use simple mock data
+        return this.generateSimpleMockData(tablesInReport[0]);
+      }
+      
+      // Multiple tables - generate relationship-aware data
+      return this.generateJoinedMockData(tablesInReport);
+    }
+
+    getTablesInReport(): string[] {
+      if (!this.report.selectedFields) return [];
+      
+      const tables = new Set<string>();
+      this.report.selectedFields.forEach(field => {
+        if (field.tableName) {
+          tables.add(field.tableName);
+        }
+      });
+      
+      return Array.from(tables);
+    }
+
+    private generateSimpleMockData(tableName: string): any[] {
+      const baseData = [
         { id: 1, name: 'Sample Data 1', value: 100, date: '2024-01-15', status: true },
         { id: 2, name: 'Sample Data 2', value: 250, date: '2024-01-16', status: false },
         { id: 3, name: 'Sample Data 3', value: 75, date: '2024-01-17', status: true },
         { id: 4, name: 'Sample Data 4', value: 300, date: '2024-01-18', status: false },
         { id: 5, name: 'Sample Data 5', value: 125, date: '2024-01-19', status: true }
       ];
+
+      // Customize data based on table name
+      return baseData.map((item, index) => {
+        const customizedItem: any = { ...item };
+        
+        switch (tableName.toLowerCase()) {
+          case 'customers':
+            customizedItem.customer_id = `CUST${String(index + 1).padStart(3, '0')}`;
+            customizedItem.company_name = `Company ${index + 1}`;
+            customizedItem.contact_name = `Contact ${index + 1}`;
+            customizedItem.country = ['USA', 'Canada', 'UK', 'Germany', 'France'][index % 5];
+            break;
+          case 'orders':
+            customizedItem.order_id = 10000 + index;
+            customizedItem.customer_id = `CUST${String((index % 3) + 1).padStart(3, '0')}`;
+            customizedItem.order_date = new Date(2024, 0, 15 + index).toISOString().split('T')[0];
+            customizedItem.freight = (Math.random() * 100).toFixed(2);
+            break;
+          case 'order_details':
+            customizedItem.order_id = 10000 + Math.floor(index / 2);
+            customizedItem.product_id = index + 1;
+            customizedItem.quantity = Math.floor(Math.random() * 10) + 1;
+            customizedItem.unit_price = (Math.random() * 50 + 10).toFixed(2);
+            break;
+          case 'products':
+            customizedItem.product_id = index + 1;
+            customizedItem.product_name = `Product ${index + 1}`;
+            customizedItem.unit_price = (Math.random() * 100 + 10).toFixed(2);
+            customizedItem.units_in_stock = Math.floor(Math.random() * 100);
+            break;
+        }
+        
+        return customizedItem;
+      });
+    }
+
+    private generateJoinedMockData(tables: string[]): any[] {
+      // Generate master-child relationship data
+      const masterTable = this.identifyMasterTable(tables);
+      const joinedData: any[] = [];
+      
+      // Create base records for master table
+      const masterRecords = this.generateSimpleMockData(masterTable);
+      
+      masterRecords.forEach((masterRecord, masterIndex) => {
+        // For each master record, create related child records
+        tables.forEach(table => {
+          if (table === masterTable) return;
+          
+          const childRecords = this.generateRelatedChildRecords(masterRecord, table, masterIndex);
+          
+          if (childRecords.length > 0) {
+            childRecords.forEach(childRecord => {
+              // Merge master and child data
+              const joinedRecord = { ...masterRecord, ...childRecord };
+              joinedData.push(joinedRecord);
+            });
+          } else {
+            // No child records, just add master record
+            joinedData.push(masterRecord);
+          }
+        });
+        
+        // If only master table fields selected, add master record
+        if (tables.length === 1) {
+          joinedData.push(masterRecord);
+        }
+      });
+      
+      return joinedData.slice(0, 10); // Limit to reasonable preview size
+    }
+
+    private identifyMasterTable(tables: string[]): string {
+      // Simple heuristic: customers > orders > order_details > products
+      const hierarchy = ['customers', 'orders', 'order_details', 'products'];
+      
+      for (const masterCandidate of hierarchy) {
+        if (tables.includes(masterCandidate)) {
+          return masterCandidate;
+        }
+      }
+      
+      return tables[0]; // Fallback to first table
+    }
+
+    private generateRelatedChildRecords(masterRecord: any, childTable: string, masterIndex: number): any[] {
+      const childRecords: any[] = [];
+      
+      switch (childTable.toLowerCase()) {
+        case 'orders':
+          // Each customer has 1-3 orders
+          const orderCount = Math.floor(Math.random() * 3) + 1;
+          for (let i = 0; i < orderCount; i++) {
+            childRecords.push({
+              order_id: 10000 + (masterIndex * 3) + i,
+              customer_id: masterRecord.customer_id,
+              order_date: new Date(2024, 0, 15 + (masterIndex * 3) + i).toISOString().split('T')[0],
+              freight: (Math.random() * 100).toFixed(2)
+            });
+          }
+          break;
+          
+        case 'order_details':
+          // Each order has 1-4 order details
+          const detailCount = Math.floor(Math.random() * 4) + 1;
+          for (let i = 0; i < detailCount; i++) {
+            childRecords.push({
+              order_id: masterRecord.order_id,
+              product_id: (masterIndex * 4) + i + 1,
+              quantity: Math.floor(Math.random() * 10) + 1,
+              unit_price: (Math.random() * 50 + 10).toFixed(2)
+            });
+          }
+          break;
+          
+        case 'products':
+          // Products referenced by order details
+          if (masterRecord.product_id) {
+            childRecords.push({
+              product_id: masterRecord.product_id,
+              product_name: `Product ${masterRecord.product_id}`,
+              unit_price: (Math.random() * 100 + 10).toFixed(2),
+              units_in_stock: Math.floor(Math.random() * 100)
+            });
+          }
+          break;
+      }
+      
+      return childRecords;
     }
 
     getMockValue(field: any, rowIndex: number, groupIndex?: number): string {
       const mockData = this.getMockData();
       const row = mockData[rowIndex % mockData.length];
       
+      // Try to get the actual field value from the row first
+      const fieldKey = field.fieldName || field.name;
+      let value = row[fieldKey];
+      
+      // If field value exists, format it according to data type
+      if (value !== undefined && value !== null) {
+        return this.formatValue(value, field.dataType);
+      }
+      
+      // Fallback to generic value based on data type
       switch (field.dataType) {
         case FieldDataType.CURRENCY:
           return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD'
-          }).format(row.value || 0);
+          }).format(row.value || Math.random() * 100);
         case FieldDataType.NUMBER:
-          return new Intl.NumberFormat().format(row.value || 0);
+          return new Intl.NumberFormat().format(row.value || Math.floor(Math.random() * 1000));
         case FieldDataType.DATE:
           return new Date(row.date || new Date()).toLocaleDateString();
         case FieldDataType.BOOLEAN:
-          return row.status ? 'Yes' : 'No';
+          return row.status !== undefined ? (row.status ? 'Yes' : 'No') : (Math.random() > 0.5 ? 'Yes' : 'No');
         case FieldDataType.STRING:
         default:
           return row.name || `Sample ${field.displayName} ${rowIndex + 1}`;
+      }
+    }
+
+    private formatValue(value: any, dataType: FieldDataType): string {
+      switch (dataType) {
+        case FieldDataType.CURRENCY:
+          return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }).format(parseFloat(value) || 0);
+        case FieldDataType.NUMBER:
+          return new Intl.NumberFormat().format(parseFloat(value) || 0);
+        case FieldDataType.DATE:
+          return new Date(value).toLocaleDateString();
+        case FieldDataType.BOOLEAN:
+          return value ? 'Yes' : 'No';
+        case FieldDataType.STRING:
+        default:
+          return String(value);
       }
     }
 
@@ -419,6 +631,14 @@ export class LayoutPreviewComponent {
     exportReport(): void {
       // Placeholder for export functionality
       console.log('Export report:', this.report);
+    }
+
+    isTableMaster(tableName: string): boolean {
+      const tables = this.getTablesInReport();
+      if (tables.length <= 1) return true;
+      
+      const masterTable = this.identifyMasterTable(tables);
+      return tableName === masterTable;
     }
 
     openLayoutSettings(): void {

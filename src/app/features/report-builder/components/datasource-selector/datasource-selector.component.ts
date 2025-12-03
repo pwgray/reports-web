@@ -4,103 +4,262 @@ import { Observable } from "rxjs";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar";
+import { MatCardModule } from "@angular/material/card";
+import { MatButtonModule } from "@angular/material/button";
+import { MatIconModule } from "@angular/material/icon";
+import { MatTooltipModule } from "@angular/material/tooltip";
+import { MatDialogModule, MatDialog } from "@angular/material/dialog";
+import { MatSelectModule } from "@angular/material/select";
+import { MatOptionModule } from "@angular/material/core";
+import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
+import { trigger, transition, style, animate } from '@angular/animations';
 import { SchemaInfo } from "../../../../core/models/schema-info.model";
 import { ReportBuilderService } from "../../services/report-builder.service";
 
 @Component({
   selector: 'app-datasource-selector',
-  imports: [CommonModule, FormsModule, MatSnackBarModule],
+  standalone: true,
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    MatSnackBarModule,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatDialogModule,
+    MatSelectModule,
+    MatOptionModule,
+    MatProgressSpinnerModule
+  ],
   template: `
     <div class="datasource-selector">
+      <!-- Header -->
       <div class="selector-header">
-        <h3 class="selector-title">
-          <i class="fas fa-database"></i>
-          Select Data Source
-        </h3>
-        <p class="selector-description">
-          Choose a data source to connect to your report. After selection, click the "Next" button to continue.
-        </p>
+        <div class="header-content">
+          <h3 class="selector-title">
+            <mat-icon class="title-icon">storage</mat-icon>
+            Select Data Source
+          </h3>
+          <p class="selector-description">
+            Choose a data source to connect to your report, or create a new one
+          </p>
+        </div>
+        <div class="header-actions">
+          <button 
+            mat-raised-button
+            color="primary"
+            (click)="toggleCreatePanel()"
+            [class.active]="showCreatePanel">
+            <mat-icon>{{ showCreatePanel ? 'close' : 'add' }}</mat-icon>
+            {{ showCreatePanel ? 'Cancel' : 'New Data Source' }}
+          </button>
+        </div>
       </div>
 
-      <div class="create-datasource">
-        <button class="btn btn-secondary" (click)="toggleCreatePanel()">
-          {{ showCreatePanel ? 'Cancel' : 'Add New Data Source' }}
+      <!-- Create/Edit Panel -->
+      <mat-card class="form-panel" *ngIf="showCreatePanel" [@slideDown]>
+        <mat-card-header>
+          <div class="panel-header">
+            <mat-icon class="panel-icon">{{ editMode ? 'edit' : 'add_circle' }}</mat-icon>
+            <h4>{{ editMode ? 'Edit Data Source' : 'Create New Data Source' }}</h4>
+          </div>
+        </mat-card-header>
+
+        <mat-card-content>
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="ds-name">Name *</label>
+              <input 
+                id="ds-name"
+                type="text" 
+                [(ngModel)]="formData.name" 
+                placeholder="e.g. Production SQL Server"
+                class="mat-input" />
+            </div>
+
+            <div class="form-field">
+              <label for="ds-type">Database Type *</label>
+              <mat-select 
+                id="ds-type"
+                [(ngModel)]="formData.type"
+                placeholder="Select database type">
+                <mat-option value="sqlserver">
+                  <mat-icon>dns</mat-icon>
+                  SQL Server
+                </mat-option>
+                <mat-option value="postgresql">
+                  <mat-icon>dns</mat-icon>
+                  PostgreSQL
+                </mat-option>
+                <mat-option value="mysql">
+                  <mat-icon>dns</mat-icon>
+                  MySQL
+                </mat-option>
+                <mat-option value="oracle">
+                  <mat-icon>dns</mat-icon>
+                  Oracle
+                </mat-option>
+              </mat-select>
+            </div>
+
+            <div class="form-field full-width">
+              <label for="ds-connection">Connection String *</label>
+              <input 
+                id="ds-connection"
+                type="text" 
+                [(ngModel)]="formData.connectionString" 
+                placeholder="Server=...;Database=...;User ID=...;Password=...;"
+                class="mat-input" />
+              <small class="field-hint">
+                <mat-icon class="hint-icon">info</mat-icon>
+                Ensure the connection string is valid and secure
+              </small>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button 
+              mat-raised-button
+              (click)="fetchSchema()" 
+              [disabled]="isFetching || !canFetchSchema()">
+              <mat-icon>{{ isFetching ? 'refresh' : 'cloud_download' }}</mat-icon>
+              {{ isFetching ? 'Fetching Schema...' : 'Fetch Schema' }}
+            </button>
+
+            <div class="schema-status" *ngIf="fetchedSchema">
+              <mat-icon class="success-icon">check_circle</mat-icon>
+              <span>Schema loaded: <strong>{{ fetchedSchema.tables.length || 0 }} tables</strong></span>
+            </div>
+          </div>
+        </mat-card-content>
+
+        <mat-card-actions>
+          <button 
+            mat-button
+            (click)="cancelForm()">
+            Cancel
+          </button>
+          <button 
+            mat-raised-button
+            color="primary"
+            (click)="saveDataSource()"
+            [disabled]="saving || !canSave()">
+            <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+            {{ saving ? 'Saving...' : (editMode ? 'Update' : 'Create') }}
+          </button>
+        </mat-card-actions>
+      </mat-card>
+
+      <!-- Data Sources Grid -->
+      <div class="datasources-section" *ngIf="dataSources && dataSources.length > 0">
+        <div class="section-header">
+          <h4>
+            <mat-icon>folder</mat-icon>
+            Available Data Sources ({{ dataSources.length }})
+          </h4>
+        </div>
+
+        <div class="datasource-grid">
+          <mat-card 
+            class="datasource-card" 
+            *ngFor="let datasource of dataSources"
+            [class.selected]="selectedDataSource?.id === datasource.id"
+            (click)="selectDataSource(datasource)"
+            [@cardAnimation]>
+            
+            <mat-card-content>
+              <div class="card-main" (click)="selectDataSource(datasource)">
+                <div class="card-icon">
+                  <mat-icon [class.selected-icon]="selectedDataSource?.id === datasource.id">
+                    storage
+                  </mat-icon>
+                </div>
+
+                <div class="card-info">
+                  <h4 class="datasource-name">{{ datasource.name }}</h4>
+                  <div class="datasource-meta">
+                    <span class="datasource-type">
+                      <mat-icon class="type-icon">dns</mat-icon>
+                      {{ getDatabaseTypeDisplay(datasource.type) }}
+                    </span>
+                    <span class="table-count" *ngIf="datasource.schema">
+                      <mat-icon class="count-icon">table_chart</mat-icon>
+                      {{ datasource.schema.tables?.length || 0 }} tables
+                    </span>
+                  </div>
+                </div>
+
+                <div class="selection-indicator" *ngIf="selectedDataSource?.id === datasource.id">
+                  <mat-icon class="check-icon">check_circle</mat-icon>
+                </div>
+              </div>
+
+              <div class="card-actions" (click)="$event.stopPropagation()">
+                <button 
+                  mat-icon-button
+                  (click)="editDataSource(datasource)"
+                  matTooltip="Edit data source"
+                  color="primary">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button 
+                  mat-icon-button
+                  (click)="confirmDelete(datasource)"
+                  matTooltip="Delete data source"
+                  color="warn">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="!dataSources || dataSources.length === 0">
+        <mat-icon class="empty-icon">cloud_off</mat-icon>
+        <h4>No Data Sources Available</h4>
+        <p>Get started by creating your first data source</p>
+        <button 
+          mat-raised-button
+          color="primary"
+          (click)="toggleCreatePanel()">
+          <mat-icon>add</mat-icon>
+          Create Data Source
         </button>
-
-        <div class="create-panel" *ngIf="showCreatePanel" style="margin-top: 12px;">
-          <div class="form-row">
-            <label>Name</label>
-            <input type="text" [(ngModel)]="newDs.name" placeholder="e.g. Production SQL Server" />
-          </div>
-          <div class="form-row">
-            <label>Type</label>
-            <select [(ngModel)]="newDs.type">
-              <option value="sqlserver">SQL Server</option>
-              <option value="postgresql">PostgreSQL</option>
-              <option value="mysql">MySQL</option>
-              <option value="oracle">Oracle</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Connection String</label>
-            <input type="text" [(ngModel)]="newDs.connectionString" placeholder="Server=...;Port=...;User ID=...;Password=...;Database=...;" />
-          </div>
-
-          <div class="actions">
-            <button class="btn btn-outline" (click)="fetchSchema()" [disabled]="isFetching || !canFetchSchema()">
-              {{ isFetching ? 'Fetching schema...' : 'Fetch Schema' }}
-            </button>
-
-            <button class="btn btn-primary" (click)="saveDataSource()"
-              [disabled]="saving || !canSave()">
-              {{ saving ? 'Saving...' : 'Save Data Source' }}
-            </button>
-          </div>
-
-          <div class="schema-feedback" *ngIf="fetchedSchema">
-            <small>
-              Schema fetched: {{ fetchedSchema?.tables?.length || 0 }} tables
-            </small>
-          </div>
-        </div>
       </div>
 
-      <div class="datasource-grid" *ngIf="dataSources && dataSources.length > 0">
-        <div 
-          class="datasource-card" 
-          *ngFor="let datasource of dataSources"
-          [class.selected]="selectedDataSource?.id === datasource.id"
-          (click)="selectDataSource(datasource)"
-        >
-          <div class="card-header">
-            <div class="datasource-icon">
-              <i class="fas fa-database"></i>
-            </div>
-            <div class="datasource-info">
-              <h4 class="datasource-name">{{ datasource.name }}</h4>
-              <span class="datasource-type">{{ datasource.type }}</span>
-            </div>
-            <div class="selection-indicator" *ngIf="selectedDataSource?.id === datasource.id">
-              <i class="fas fa-check-circle"></i>
-            </div>
+      <!-- Selection Feedback -->
+      <div class="selection-feedback" *ngIf="selectedDataSource && dataSources && dataSources.length > 0">
+        <mat-card class="feedback-card">
+          <mat-icon class="feedback-icon">check_circle</mat-icon>
+          <div class="feedback-content">
+            <span class="feedback-label">Selected Data Source:</span>
+            <strong class="feedback-value">{{ selectedDataSource.name }}</strong>
           </div>
-        </div>
-      </div>
-
-      <div class="no-datasources" *ngIf="!dataSources || dataSources.length === 0">
-        <i class="fas fa-exclamation-triangle"></i>
-        <p>No data sources available</p>
-      </div>
-
-      <div class="selection-feedback" *ngIf="selectedDataSource">
-        <div class="feedback-card">
-          <i class="fas fa-check"></i>
-          <span>Selected: <strong>{{ selectedDataSource.name }}</strong></span>          
-        </div>
+        </mat-card>
       </div>
     </div>
   `,
-  styleUrls: ['./datasource-selector.component.scss']
+  styleUrls: ['./datasource-selector.component.scss'],
+  animations: [
+    trigger('slideDown', [
+      transition(':enter', [
+        style({ height: 0, opacity: 0, transform: 'translateY(-20px)' }),
+        animate('300ms ease-out', style({ height: '*', opacity: 1, transform: 'translateY(0)' }))
+      ]),
+      transition(':leave', [
+        animate('200ms ease-in', style({ height: 0, opacity: 0, transform: 'translateY(-20px)' }))
+      ])
+    ]),
+    trigger('cardAnimation', [
+      transition(':enter', [
+        style({ transform: 'scale(0.95)', opacity: 0 }),
+        animate('200ms ease-out', style({ transform: 'scale(1)', opacity: 1 }))
+      ])
+    ])
+  ]
 })
 export class DataSourceSelectorComponent implements OnChanges, OnInit {
     @Input() dataSources!: DataSourceInfo[] | null;
@@ -112,12 +271,18 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
     selectedDataSource: DataSourceInfo | null = null;
 
     showCreatePanel = false;
-    newDs: { name: string; type: string; connectionString: string } = { name: '', type: 'sqlserver', connectionString: '' };
+    editMode = false;
+    editingId: string | null = null;
+    formData: { name: string; type: string; connectionString: string } = { name: '', type: 'sqlserver', connectionString: '' };
     fetchedSchema: SchemaInfo | null = null;
     isFetching = false;
     saving = false;
 
-    constructor(private reportBuilderService: ReportBuilderService, private snackBar: MatSnackBar) {}
+    constructor(
+        private reportBuilderService: ReportBuilderService, 
+        private snackBar: MatSnackBar,
+        private dialog: MatDialog
+    ) {}
 
     ngOnInit(): void {
         console.log('DataSourceSelectorComponent ngOnInit', this.selected);
@@ -159,65 +324,130 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
     toggleCreatePanel(): void {
         this.showCreatePanel = !this.showCreatePanel;
         if (!this.showCreatePanel) {
-          this.resetCreateForm();
+          this.resetForm();
         }
     }
 
+    editDataSource(datasource: DataSourceInfo): void {
+        this.editMode = true;
+        this.editingId = datasource.id || null;
+        this.formData = {
+            name: datasource.name,
+            type: datasource.type,
+            connectionString: datasource.connectionString || ''
+        };
+        this.fetchedSchema = datasource.schema || null;
+        this.showCreatePanel = true;
+    }
+
+    cancelForm(): void {
+        this.showCreatePanel = false;
+        this.resetForm();
+    }
+
+    confirmDelete(datasource: DataSourceInfo): void {
+        if (confirm(`Are you sure you want to delete "${datasource.name}"?\n\nThis action cannot be undone.`)) {
+            this.deleteDataSource(datasource);
+        }
+    }
+
+    deleteDataSource(datasource: DataSourceInfo): void {
+        if (!datasource.id) return;
+
+        this.reportBuilderService.deleteDataSource(datasource.id).subscribe({
+            next: () => {
+                this.snackBar.open('Data source deleted successfully', 'Close', { duration: 3000 });
+                // If deleted datasource was selected, clear selection
+                if (this.selectedDataSource?.id === datasource.id) {
+                    this.selectedDataSource = null;
+                    this.dataSourceSelected.emit(null as any);
+                }
+                // Notify parent to refresh the list
+                this.dataSourceCreated.emit(datasource); // Reusing this event to trigger refresh
+            },
+            error: (err) => {
+                console.error(err);
+                this.snackBar.open('Failed to delete data source', 'Close', { duration: 3000 });
+            }
+        });
+    }
+
     canFetchSchema(): boolean {
-      return !!this.newDs.connectionString && !!this.newDs.type && !!this.newDs.name;
+      return !!this.formData.connectionString && !!this.formData.type && !!this.formData.name;
     }
 
     fetchSchema(): void {
       if (!this.canFetchSchema()) return;
       this.isFetching = true;
       this.fetchedSchema = null;
-      console.log('connection string: ', this.newDs.connectionString);
-      this.reportBuilderService.introspectSchema(this.newDs.connectionString, this.newDs.type).subscribe({
+      console.log('connection string: ', this.formData.connectionString);
+      this.reportBuilderService.introspectSchema(this.formData.connectionString, this.formData.type).subscribe({
         next: (schema) => {
           this.fetchedSchema = schema;
           this.isFetching = false;
-          this.snackBar.open('Schema fetched', 'Close', { duration: 2500 });
+          this.snackBar.open('Schema fetched successfully', 'Close', { duration: 2500 });
         },
         error: (err) => {
           console.error(err);
           this.isFetching = false;
-          this.snackBar.open('Failed to fetch schema', 'Close', { duration: 3000 });
+          this.snackBar.open('Failed to fetch schema. Check your connection string.', 'Close', { duration: 3000 });
         }
       });
     }
 
     canSave(): boolean {
-      return !!this.newDs.name && !!this.newDs.type && !!this.newDs.connectionString && !!this.fetchedSchema;
+      return !!this.formData.name && !!this.formData.type && !!this.formData.connectionString && !!this.fetchedSchema;
     }
 
     saveDataSource(): void {
       if (!this.canSave()) return;
       this.saving = true;
-      this.reportBuilderService.createDataSource({
-        name: this.newDs.name,
-        type: this.newDs.type,
-        connectionString: this.newDs.connectionString,
+
+      const payload = {
+        name: this.formData.name,
+        type: this.formData.type,
+        connectionString: this.formData.connectionString,
         schema: this.fetchedSchema!
-      }).subscribe({
-        next: (created) => {
+      };
+
+      const operation = this.editMode && this.editingId
+        ? this.reportBuilderService.updateDataSource(this.editingId, payload)
+        : this.reportBuilderService.createDataSource(payload);
+
+      operation.subscribe({
+        next: (result) => {
           this.saving = false;
-          this.snackBar.open('Data source created', 'Close', { duration: 3000 });
-          this.dataSourceCreated.emit(created);
-          this.resetCreateForm();
+          const message = this.editMode ? 'Data source updated successfully' : 'Data source created successfully';
+          this.snackBar.open(message, 'Close', { duration: 3000 });
+          this.dataSourceCreated.emit(result);
+          this.resetForm();
           this.showCreatePanel = false;
         },
         error: (err) => {
           console.error(err);
           this.saving = false;
-          this.snackBar.open('Failed to save data source', 'Close', { duration: 3000 });
+          const message = this.editMode ? 'Failed to update data source' : 'Failed to create data source';
+          this.snackBar.open(message, 'Close', { duration: 3000 });
         }
       });
     }
 
-    private resetCreateForm(): void {
-      this.newDs = { name: '', type: 'sqlserver', connectionString: '' };
+    getDatabaseTypeDisplay(type: string): string {
+        const typeMap: { [key: string]: string } = {
+            'sqlserver': 'SQL Server',
+            'postgresql': 'PostgreSQL',
+            'mysql': 'MySQL',
+            'oracle': 'Oracle'
+        };
+        return typeMap[type.toLowerCase()] || type;
+    }
+
+    private resetForm(): void {
+      this.formData = { name: '', type: 'sqlserver', connectionString: '' };
       this.fetchedSchema = null;
       this.isFetching = false;
       this.saving = false;
+      this.editMode = false;
+      this.editingId = null;
     }
 }

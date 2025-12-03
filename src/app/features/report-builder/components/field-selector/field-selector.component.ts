@@ -19,10 +19,26 @@ import {
   faLayerGroup,
   faSort,
   faChartBar,
-  faCog
+  faCog,
+  faProjectDiagram,
+  faLink,
+  faKey,
+  faArrowRight,
+  faCheckSquare,
+  faNetworkWired
 } from '@fortawesome/free-solid-svg-icons';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { FieldFormatDialogComponent } from '../field-format-dialog/field-format-dialog.component';
+import { RelatedFieldDialogComponent, RelatedFieldDialogResult } from '../related-field-dialog/related-field-dialog.component';
+
+interface HierarchyNode {
+  table: any;
+  relationship?: any;
+  level: number;
+  expanded: boolean;
+  children: HierarchyNode[];
+  parent?: HierarchyNode;
+}
 
 // features/report-builder/components/field-selector/field-selector.component.ts
 @Component({
@@ -70,7 +86,39 @@ import { FieldFormatDialogComponent } from '../field-format-dialog/field-format-
           </div>
 
           <div class="sidebar-content">
-            <div class="field-categories">
+            <!-- View Toggle -->
+            <div class="view-toggle">
+              <button 
+                class="toggle-btn"
+                [class.active]="viewMode === 'flat'"
+                (click)="setViewMode('flat')"
+                title="Flat view">
+                <fa-icon [icon]="faTable"></fa-icon>
+                Tables
+              </button>
+              <button 
+                class="toggle-btn"
+                [class.active]="viewMode === 'hierarchical'"
+                (click)="setViewMode('hierarchical')"
+                title="Hierarchical view">
+                <fa-icon [icon]="faProjectDiagram"></fa-icon>
+                Relationships
+              </button>
+            </div>
+
+            <!-- Add Related Field Button -->
+            <div class="related-field-section" *ngIf="schema && schema.relationships && schema.relationships.length > 0">
+              <button 
+                class="add-related-btn"
+                (click)="openRelatedFieldDialog()"
+                title="Add field from related table">
+                <fa-icon [icon]="faNetworkWired"></fa-icon>
+                Add Related Table Field
+              </button>
+            </div>
+
+            <!-- Flat View -->
+            <div class="field-categories" *ngIf="viewMode === 'flat'">
               <div 
                 *ngFor="let category of filteredCategories" 
                 class="field-category"
@@ -85,7 +133,15 @@ import { FieldFormatDialogComponent } from '../field-format-dialog/field-format-
                     <fa-icon [icon]="faTable" class="category-icon"></fa-icon>
                     <span class="category-name">{{ category.displayName }}</span>
                   </div>
-                  <span class="field-count">{{ category.fields.length }}</span>
+                  <div class="category-actions">
+                    <button 
+                      class="select-all-btn"
+                      (click)="selectAllFieldsFromTable(category); $event.stopPropagation()"
+                      title="Select all fields from this table">
+                      <fa-icon [icon]="faCheckSquare"></fa-icon>
+                    </button>
+                    <span class="field-count">{{ category.fields.length }}</span>
+                  </div>
                 </div>
 
                 <div class="category-fields" *ngIf="category.expanded">
@@ -93,16 +149,128 @@ import { FieldFormatDialogComponent } from '../field-format-dialog/field-format-
                     *ngFor="let field of category.fields"
                     class="field-item"
                     [class.selected]="isFieldSelected(field)"
+                    [class.primary-key]="field.isPrimaryKey"
+                    [class.foreign-key]="field.isForeignKey"
                     cdkDrag
                     [cdkDragData]="field"
                     [cdkDragDisabled]="isFieldSelected(field)">
                     
                     <div class="field-item-content">
                       <div class="field-info">
-                        <div class="field-name">{{ field.displayName }}</div>
+                        <div class="field-name">
+                          <fa-icon 
+                            *ngIf="field.isPrimaryKey" 
+                            [icon]="faKey" 
+                            class="key-icon primary-key-icon"
+                            title="Primary Key">
+                          </fa-icon>
+                          <fa-icon 
+                            *ngIf="field.isForeignKey" 
+                            [icon]="faLink" 
+                            class="key-icon foreign-key-icon"
+                            title="Foreign Key">
+                          </fa-icon>
+                          {{ field.displayName }}
+                        </div>
                         <div class="field-type">
                           <fa-icon [icon]="getFieldTypeIcon(field.dataType)" class="field-type-icon"></fa-icon>
                           {{ getFieldTypeDisplay(field.dataType) }}
+                        </div>
+                        <div class="field-reference" *ngIf="field.foreignKeyReference">
+                          <fa-icon [icon]="faArrowRight" class="reference-icon"></fa-icon>
+                          {{ field.foreignKeyReference.referencedTable }}.{{ field.foreignKeyReference.referencedColumn }}
+                        </div>
+                      </div>
+                      
+                      <div class="field-actions">
+                        <button 
+                          class="add-field-btn"
+                          [disabled]="isFieldSelected(field)"
+                          (click)="addField(field)"
+                          title="Add to report">
+                          <fa-icon [icon]="faPlus"></fa-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hierarchical View -->
+            <div class="relationship-hierarchy" *ngIf="viewMode === 'hierarchical'">
+              <div 
+                *ngFor="let node of hierarchicalNodes" 
+                class="hierarchy-node"
+                [class.expanded]="node.expanded"
+                [style.margin-left.px]="node.level * 20">
+                
+                <div class="node-header" (click)="toggleHierarchyNode(node)">
+                  <div class="node-info">
+                    <fa-icon 
+                      *ngIf="node.children.length > 0"
+                      [icon]="node.expanded ? faChevronDown : faChevronRight" 
+                      class="node-toggle-icon">
+                    </fa-icon>
+                    <fa-icon 
+                      [icon]="node.level === 0 ? faTable : faLayerGroup" 
+                      class="node-icon"
+                      [class.master-table]="node.level === 0"
+                      [class.child-table]="node.level > 0">
+                    </fa-icon>
+                    <span class="node-name">{{ node.table.displayName || node.table.name }}</span>
+                    <span class="relationship-info" *ngIf="node.relationship">
+                      ({{ node.relationship.cardinality.replace('_', ' ') }})
+                    </span>
+                  </div>
+                  <div class="node-actions">
+                    <button 
+                      class="select-all-btn"
+                      (click)="selectAllFieldsFromHierarchyNode(node); $event.stopPropagation()"
+                      title="Select all fields from this table">
+                      <fa-icon [icon]="faCheckSquare"></fa-icon>
+                    </button>
+                    <span class="field-count">{{ node.table.columns.length }}</span>
+                  </div>
+                </div>
+
+                <!-- Table Fields -->
+                <div class="node-fields" *ngIf="node.expanded">
+                  <div 
+                    *ngFor="let field of node.table.columns"
+                    class="field-item hierarchical-field"
+                    [class.selected]="isFieldSelected(field)"
+                    [class.primary-key]="field.isPrimaryKey"
+                    [class.foreign-key]="field.isForeignKey"
+                    [class.relationship-key]="isRelationshipKey(field, node)"
+                    cdkDrag
+                    [cdkDragData]="field"
+                    [cdkDragDisabled]="isFieldSelected(field)">
+                    
+                    <div class="field-item-content">
+                      <div class="field-info">
+                        <div class="field-name">
+                          <fa-icon 
+                            *ngIf="field.isPrimaryKey" 
+                            [icon]="faKey" 
+                            class="key-icon primary-key-icon"
+                            title="Primary Key">
+                          </fa-icon>
+                          <fa-icon 
+                            *ngIf="field.isForeignKey" 
+                            [icon]="faLink" 
+                            class="key-icon foreign-key-icon"
+                            title="Foreign Key">
+                          </fa-icon>
+                          {{ field.displayName || field.name }}
+                        </div>
+                        <div class="field-type">
+                          <fa-icon [icon]="getFieldTypeIcon(field.dataType)" class="field-type-icon"></fa-icon>
+                          {{ getFieldTypeDisplay(field.dataType) }}
+                        </div>
+                        <div class="field-reference" *ngIf="field.foreignKeyReference">
+                          <fa-icon [icon]="faArrowRight" class="reference-icon"></fa-icon>
+                          {{ field.foreignKeyReference.referencedTable }}.{{ field.foreignKeyReference.referencedColumn }}
                         </div>
                       </div>
                       
@@ -146,10 +314,22 @@ import { FieldFormatDialogComponent } from '../field-format-dialog/field-format-
                   
                   <div class="field-details">
                     <div class="field-header">
-                      <div class="field-title">{{ field.displayName }}</div>
+                      <div class="field-title">
+                        <fa-icon 
+                          *ngIf="field.relatedTable" 
+                          [icon]="faNetworkWired" 
+                          class="related-field-icon"
+                          title="Related table field">
+                        </fa-icon>
+                        {{ field.displayName }}
+                      </div>
                       <div class="field-meta">
                         <span class="field-source">{{ field.tableName }}</span>
-                        <span class="field-source">{{ field.fieldName }}</span>
+                        <span class="field-source" *ngIf="!field.relatedTable">{{ field.fieldName }}</span>
+                        <span class="field-source related-badge" *ngIf="field.relatedTable">
+                          <fa-icon [icon]="faProjectDiagram"></fa-icon>
+                          {{ field.relatedTable.displayMode === 'aggregate' ? 'Aggregated' : 'Sub-Report' }}
+                        </span>
                         <span class="field-type-badge">
                           <fa-icon [icon]="getFieldTypeIcon(field.dataType)" class="field-type-icon"></fa-icon>
                           {{ getFieldTypeDisplay(field.dataType) }}
@@ -235,10 +415,20 @@ export class FieldSelectorComponent implements OnInit {
   faSort = faSort;
   faChartBar = faChartBar;
   faCog = faCog;
+  faProjectDiagram = faProjectDiagram;
+  faLink = faLink;
+  faKey = faKey;
+  faArrowRight = faArrowRight;
+  faCheckSquare = faCheckSquare;
+  faNetworkWired = faNetworkWired;
 
   searchTerm = '';
   filteredCategories: any[] = [];
   allCategories: any[] = [];
+  
+  // View mode and hierarchical data
+  viewMode: 'flat' | 'hierarchical' = 'flat';
+  hierarchicalNodes: HierarchyNode[] = [];
 
   // Sidebar resizing
   sidebarWidth = 320;
@@ -252,6 +442,7 @@ export class FieldSelectorComponent implements OnInit {
 
   ngOnInit(): void {
     this.buildFieldCategories();
+    this.buildHierarchicalView();
     console.log('FieldSelectorComponent ngOnInit', this.selectedFields);
   }
 
@@ -283,6 +474,7 @@ export class FieldSelectorComponent implements OnInit {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['schema'] && this.schema) {
       this.buildFieldCategories();
+      this.buildHierarchicalView();
     }
     
     // Handle case where selectedFields are loaded before schema
@@ -389,9 +581,9 @@ export class FieldSelectorComponent implements OnInit {
       id: `${field.tableName}.${field.name}`,
       tableName: field.tableName,
       fieldName: field.name,
-      displayName: field.displayName,
-      dataType: field.dataType,
-      aggregation: this.getDefaultAggregation(field.dataType) as AggregationType | undefined
+      displayName: field.displayName || field.name,
+      dataType: field.normalizedType || field.dataType,
+      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined
     };
 
     this.selectedFields = [...this.selectedFields, selectedField];
@@ -472,5 +664,174 @@ export class FieldSelectorComponent implements OnInit {
       return '';
     }
     return undefined;
+  }
+
+  // Hierarchical view methods
+  setViewMode(mode: 'flat' | 'hierarchical'): void {
+    this.viewMode = mode;
+  }
+
+  private buildHierarchicalView(): void {
+    if (!this.schema || !this.schema.relationships) {
+      this.hierarchicalNodes = [];
+      return;
+    }
+
+    const tables = this.schema.tables;
+    const relationships = this.schema.relationships;
+    const nodeMap = new Map<string, HierarchyNode>();
+    
+    // Create nodes for all tables
+    tables.forEach(table => {
+      nodeMap.set(table.name, {
+        table: {
+          ...table,
+          columns: table.columns.map(col => ({
+            ...col,
+            tableName: table.name,
+            displayName: col.displayName || col.name
+          }))
+        },
+        level: 0,
+        expanded: false,
+        children: []
+      });
+    });
+
+    // Build hierarchy based on relationships
+    relationships.forEach(rel => {
+      const parentNode = nodeMap.get(rel.parentTable);
+      const childNode = nodeMap.get(rel.childTable);
+      
+      if (parentNode && childNode) {
+        childNode.relationship = rel;
+        childNode.parent = parentNode;
+        parentNode.children.push(childNode);
+      }
+    });
+
+    // Find root nodes (tables with no parent relationships)
+    const rootNodes: HierarchyNode[] = [];
+    nodeMap.forEach(node => {
+      if (!node.parent) {
+        rootNodes.push(node);
+      }
+    });
+
+    // Set levels for hierarchy
+    const setLevels = (nodes: HierarchyNode[], level: number) => {
+      nodes.forEach(node => {
+        node.level = level;
+        if (node.children.length > 0) {
+          setLevels(node.children, level + 1);
+        }
+      });
+    };
+
+    setLevels(rootNodes, 0);
+
+    // Flatten the hierarchy for display
+    const flattenHierarchy = (nodes: HierarchyNode[]): HierarchyNode[] => {
+      const result: HierarchyNode[] = [];
+      nodes.forEach(node => {
+        result.push(node);
+        if (node.expanded && node.children.length > 0) {
+          result.push(...flattenHierarchy(node.children));
+        }
+      });
+      return result;
+    };
+
+    this.hierarchicalNodes = flattenHierarchy(rootNodes);
+  }
+
+  toggleHierarchyNode(node: HierarchyNode): void {
+    node.expanded = !node.expanded;
+    this.buildHierarchicalView(); // Rebuild to show/hide children
+  }
+
+  isRelationshipKey(field: any, node: HierarchyNode): boolean {
+    if (!node.relationship) return false;
+    
+    return node.relationship.columnMappings.some((mapping: any) => 
+      mapping.childColumn === field.name || mapping.parentColumn === field.name
+    );
+  }
+
+  selectAllFieldsFromTable(table: any): void {
+    // Get all fields from the table that aren't already selected
+    const fieldsToAdd = table.fields.filter((field: any) => !this.isFieldSelected(field));
+    
+    // Convert to SelectedField objects
+    const newSelectedFields = fieldsToAdd.map((field: any) => ({
+      id: `${field.tableName}.${field.name}`,
+      tableName: field.tableName,
+      fieldName: field.name,
+      displayName: field.displayName || field.name,
+      dataType: field.normalizedType || field.dataType,
+      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined
+    }));
+    
+    // Add all new fields
+    this.selectedFields = [...this.selectedFields, ...newSelectedFields];
+    this.fieldsChanged.emit(this.selectedFields);
+  }
+
+  selectAllFieldsFromHierarchyNode(node: HierarchyNode): void {
+    // Get all fields from the node's table that aren't already selected
+    const fieldsToAdd = node.table.columns.filter((field: any) => !this.isFieldSelected(field));
+    
+    // Convert to SelectedField objects
+    const newSelectedFields = fieldsToAdd.map((field: any) => ({
+      id: `${field.tableName}.${field.name}`,
+      tableName: field.tableName,
+      fieldName: field.name,
+      displayName: field.displayName || field.name,
+      dataType: field.normalizedType || field.dataType,
+      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined
+    }));
+    
+    // Add all new fields
+    this.selectedFields = [...this.selectedFields, ...newSelectedFields];
+    this.fieldsChanged.emit(this.selectedFields);
+  }
+
+  openRelatedFieldDialog(): void {
+    if (!this.schema) return;
+
+    // Get the primary table from selected fields or first table in schema
+    const sourceTableName = this.selectedFields.length > 0 
+      ? this.selectedFields[0].tableName 
+      : this.schema.tables[0]?.name;
+
+    if (!sourceTableName) return;
+
+    const dialogRef = this.dialog.open(RelatedFieldDialogComponent, {
+      width: '600px',
+      maxHeight: '90vh',
+      autoFocus: true,
+      restoreFocus: false,
+      data: {
+        schema: this.schema,
+        sourceTableName: sourceTableName
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result?: RelatedFieldDialogResult) => {
+      if (!result) return;
+
+      // Create a new selected field with the related table configuration
+      const relatedField: SelectedField = {
+        id: `related_${Date.now()}_${result.config.relationshipId}`,
+        tableName: sourceTableName,
+        fieldName: `related_${result.config.relatedTableName}`,
+        displayName: result.displayName,
+        dataType: result.dataType,
+        relatedTable: result.config
+      };
+
+      this.selectedFields = [...this.selectedFields, relatedField];
+      this.fieldsChanged.emit(this.selectedFields);
+    });
   }
 }

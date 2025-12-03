@@ -1,144 +1,268 @@
-import { Component, Input, Output, EventEmitter } from "@angular/core";
-import { SelectedField, FilterCondition, FilterOperator } from "../../../../core/models/report.models";
+import { Component, Input, Output, EventEmitter, OnInit } from "@angular/core";
+import { SelectedField, FilterCondition, FilterOperator, FieldDataType } from "../../../../core/models/report.models";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { MatSelectModule } from "@angular/material/select";
 import { MatOptionModule } from "@angular/material/core";
+import { MatButtonModule } from "@angular/material/button";
+import { MatIconModule } from "@angular/material/icon";
+import { MatChipsModule } from "@angular/material/chips";
+import { MatTooltipModule } from "@angular/material/tooltip";
 import { trigger, transition, style, animate } from '@angular/animations';
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
 // features/report-builder/components/filter-builder/filter-builder.component.ts
 @Component({
     selector: 'app-filter-builder',
+    standalone: true,
     imports: [
       CommonModule,
-        FormsModule, 
-        MatOptionModule, 
-        FontAwesomeModule
-      ],
+      FormsModule, 
+      MatSelectModule,
+      MatOptionModule,
+      MatButtonModule,
+      MatIconModule,
+      MatChipsModule,
+      MatTooltipModule,
+      FontAwesomeModule
+    ],
     template: `
     <div class="filter-builder">
       <div class="filter-header">
-        <h3>Filter your data</h3>
-        <p class="help-text">Only show records that meet certain conditions</p>
+        <div class="header-content">
+          <h3>Filter Your Data</h3>
+          <p class="help-text">Define conditions to show only the records you need</p>
+        </div>
+        <div class="filter-stats" *ngIf="filters.length > 0">
+          <span class="filter-count">{{ filters.length }} filter{{ filters.length > 1 ? 's' : '' }} active</span>
+        </div>
       </div>
 
       <div class="filter-list">
-        <div 
-          *ngFor="let filter of filters; let i = index"
-          class="filter-row"
-          [@slideIn]>
-          
-          <div class="filter-content">
-            <!-- Field Selection -->
-            <div class="filter-field">
-              <label>Show records where</label>
-              <select 
-                [(ngModel)]="filter.field"
-                (change)="onFilterFieldChanged(filter, i)">
-                <option value="">Select field...</option>
-                <option 
-                  *ngFor="let field of availableFields"
-                  [ngValue]="field">
-                  {{ field.displayName }}
-                </option>
-              </select>
+        <!-- Filter Group with AND/OR Logic -->
+        <div class="filter-group" *ngIf="filters.length > 0">
+          <div class="logic-selector" *ngIf="filters.length > 1">
+            <label>Match:</label>
+            <div class="logic-buttons">
+              <button 
+                class="logic-btn"
+                [class.active]="filterLogic === 'AND'"
+                (click)="filterLogic = 'AND'; onFilterChanged()"
+                matTooltip="All conditions must be true">
+                ALL conditions
+              </button>
+              <button 
+                class="logic-btn"
+                [class.active]="filterLogic === 'OR'"
+                (click)="filterLogic = 'OR'; onFilterChanged()"
+                matTooltip="At least one condition must be true">
+                ANY condition
+              </button>
             </div>
-
-            <!-- Operator Selection -->
-            <div class="filter-operator" *ngIf="filter.field">
-              <select 
-                [(ngModel)]="filter.operator"
-                (change)="onFilterChanged()">
-                <option 
-                  *ngFor="let op of getAvailableOperators(filter.field)"
-                  [value]="op.value">
-                  {{ op.label }}
-                </option>
-              </select>
-            </div>
-
-            <!-- Value Input -->
-            <div class="filter-value" *ngIf="filter.field && filter.operator">
-              <!-- Text input -->
-              <input 
-                *ngIf="getValueInputType(filter) === 'text'"
-                type="text"
-                [(ngModel)]="filter.value"
-                (change)="onFilterChanged()"
-                [placeholder]="getValuePlaceholder(filter)">
-
-              <!-- Number input -->
-              <input 
-                *ngIf="getValueInputType(filter) === 'number'"
-                type="number"
-                [(ngModel)]="filter.value"
-                (change)="onFilterChanged()">
-
-              <!-- Date input -->
-              <input 
-                *ngIf="getValueInputType(filter) === 'date'"
-                type="date"
-                [(ngModel)]="filter.value"
-                (change)="onFilterChanged()">
-
-              <!-- Date range -->
-              <div *ngIf="getValueInputType(filter) === 'daterange'" class="date-range">
-                <input 
-                  type="date"
-                  [(ngModel)]="filter.value.start"
-                  (change)="onFilterChanged()"
-                  placeholder="Start date">
-                <span>to</span>
-                <input 
-                  type="date"
-                  [(ngModel)]="filter.value.end"
-                  (change)="onFilterChanged()"
-                  placeholder="End date">
-              </div>
-
-              <!-- Multi-select -->
-              <div *ngIf="getValueInputType(filter) === 'multiselect'" class="multi-select">
-                <mat-select 
-                  [(ngModel)]="filter.value"
-                  (selectionChange)="onFilterChanged()"
-                  multiple>
-                  <mat-option 
-                    *ngFor="let option of getFieldOptions(filter.field)"
-                    [value]="option.value">
-                    {{ option.label }}
-                  </mat-option>
-                </mat-select>
-              </div>
-            </div>
-
-            <!-- Remove Button -->
-            <button 
-              class="remove-filter-btn"
-              (click)="removeFilter(i)"
-              title="Remove this filter">
-              <i class="icon-close">X</i>
-            </button>
           </div>
 
-          <!-- Filter Preview -->
-          <div class="filter-preview" *ngIf="filter.displayText">
-            <small>{{ filter.displayText }}</small>
+          <!-- Filter Rows -->
+          <div 
+            *ngFor="let filter of filters; let i = index; let isLast = last"
+            class="filter-row-container"
+            [@slideIn]>
+            
+            <!-- Logic Connector -->
+            <div class="logic-connector" *ngIf="!isLast && filters.length > 1">
+              <span class="logic-label">{{ filterLogic }}</span>
+            </div>
+
+            <div class="filter-row" [class.valid]="isFilterValid(filter)" [class.invalid]="!isFilterValid(filter) && filter.field">
+              <div class="filter-content">
+                <!-- Field Selection -->
+                <div class="filter-field">
+                  <label class="field-label">Field</label>
+                  <select 
+                    [(ngModel)]="filter.field"
+                    (change)="onFilterFieldChanged(filter, i)"
+                    class="filter-select">
+                    <option [ngValue]="null">Select field...</option>
+                    <option 
+                      *ngFor="let field of availableFields"
+                      [ngValue]="field">
+                      {{ field.displayName }} ({{ getFieldTypeDisplay(field.dataType) }})
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Operator Selection -->
+                <div class="filter-operator" *ngIf="filter.field">
+                  <label class="field-label">Condition</label>
+                  <select 
+                    [(ngModel)]="filter.operator"
+                    (change)="onFilterOperatorChanged(filter)"
+                    class="filter-select">
+                    <option 
+                      *ngFor="let op of getAvailableOperators(filter.field)"
+                      [value]="op.value">
+                      {{ op.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Value Input -->
+                <div class="filter-value" *ngIf="filter.field && filter.operator && needsValueInput(filter.operator)">
+                  <label class="field-label">Value</label>
+                  
+                  <!-- Text input -->
+                  <input 
+                    *ngIf="getValueInputType(filter) === 'text'"
+                    type="text"
+                    [(ngModel)]="filter.value"
+                    (ngModelChange)="onFilterChanged()"
+                    [placeholder]="getValuePlaceholder(filter)"
+                    class="filter-input">
+
+                  <!-- Number input -->
+                  <input 
+                    *ngIf="getValueInputType(filter) === 'number'"
+                    type="number"
+                    [(ngModel)]="filter.value"
+                    (ngModelChange)="onFilterChanged()"
+                    [placeholder]="getValuePlaceholder(filter)"
+                    class="filter-input">
+
+                  <!-- Date input -->
+                  <input 
+                    *ngIf="getValueInputType(filter) === 'date'"
+                    type="date"
+                    [(ngModel)]="filter.value"
+                    (ngModelChange)="onFilterChanged()"
+                    class="filter-input">
+
+                  <!-- Date range -->
+                  <div *ngIf="getValueInputType(filter) === 'daterange'" class="range-inputs">
+                    <input 
+                      type="date"
+                      [(ngModel)]="filter.value.start"
+                      (ngModelChange)="onFilterChanged()"
+                      placeholder="Start date"
+                      class="filter-input range-start">
+                    <span class="range-separator">to</span>
+                    <input 
+                      type="date"
+                      [(ngModel)]="filter.value.end"
+                      (ngModelChange)="onFilterChanged()"
+                      placeholder="End date"
+                      class="filter-input range-end">
+                  </div>
+
+                  <!-- Number range -->
+                  <div *ngIf="getValueInputType(filter) === 'numberrange'" class="range-inputs">
+                    <input 
+                      type="number"
+                      [(ngModel)]="filter.value.start"
+                      (ngModelChange)="onFilterChanged()"
+                      placeholder="Min"
+                      class="filter-input range-start">
+                    <span class="range-separator">to</span>
+                    <input 
+                      type="number"
+                      [(ngModel)]="filter.value.end"
+                      (ngModelChange)="onFilterChanged()"
+                      placeholder="Max"
+                      class="filter-input range-end">
+                  </div>
+
+                  <!-- Multi-select for IN_LIST -->
+                  <div *ngIf="getValueInputType(filter) === 'multiselect'" class="multi-select-container">
+                    <mat-select 
+                      [(ngModel)]="filter.value"
+                      (selectionChange)="onFilterChanged()"
+                      multiple
+                      placeholder="Select values..."
+                      class="filter-select">
+                      <mat-option 
+                        *ngFor="let option of getFieldOptions(filter.field)"
+                        [value]="option.value">
+                        {{ option.label }}
+                      </mat-option>
+                    </mat-select>
+                    <div class="multi-select-note" *ngIf="!getFieldOptions(filter.field).length">
+                      <small>Enter comma-separated values or load from data</small>
+                    </div>
+                  </div>
+
+                  <!-- CSV Input for IN_LIST when no options available -->
+                  <input 
+                    *ngIf="getValueInputType(filter) === 'csv'"
+                    type="text"
+                    [(ngModel)]="filter.value"
+                    (ngModelChange)="onFilterChanged()"
+                    [placeholder]="getValuePlaceholder(filter)"
+                    class="filter-input"
+                    matTooltip="Enter multiple values separated by commas">
+                </div>
+
+                <!-- Remove Button -->
+                <button 
+                  class="remove-filter-btn"
+                  (click)="removeFilter(i)"
+                  matTooltip="Remove this filter"
+                  type="button">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+
+              <!-- Filter Preview/Summary -->
+              <div class="filter-preview" *ngIf="filter.displayText">
+                <mat-icon class="preview-icon">info</mat-icon>
+                <span>{{ filter.displayText }}</span>
+              </div>
+
+              <!-- Validation Message -->
+              <div class="filter-validation" *ngIf="!isFilterValid(filter) && filter.field">
+                <mat-icon class="warning-icon">warning</mat-icon>
+                <span>Please complete all required fields</span>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Add Filter Button -->
-        <button 
-          class="add-filter-btn"
-          (click)="addFilter()"
-          [disabled]="!availableFields.length">
-          <i class="icon-plus">+</i>
-          Add Filter
-        </button>
+        <div class="add-filter-section">
+          <button 
+            class="add-filter-btn"
+            (click)="addFilter()"
+            [disabled]="!availableFields.length"
+            type="button">
+            <mat-icon>add_circle</mat-icon>
+            <span>Add Filter Condition</span>
+          </button>
+        </div>
 
         <!-- No filters message -->
-        <div *ngIf="filters.length === 0" class="no-filters">
-          <i class="icon-info">Info</i>
-          <p>No filters applied. All records will be included in your report.</p>
+        <div *ngIf="filters.length === 0" class="no-filters-state">
+          <div class="empty-state-icon">
+            <mat-icon>filter_alt</mat-icon>
+          </div>
+          <h4>No Filters Applied</h4>
+          <p>All records from your data source will be included in the report.</p>
+          <p class="hint-text">Click "Add Filter Condition" to start filtering your data.</p>
+        </div>
+
+        <!-- Filter Summary -->
+        <div class="filter-summary" *ngIf="filters.length > 0">
+          <div class="summary-header">
+            <mat-icon>summarize</mat-icon>
+            <strong>Filter Summary:</strong>
+          </div>
+          <div class="summary-content">
+            <p>{{ getFilterSummary() }}</p>
+          </div>
+          <button 
+            class="clear-all-btn"
+            (click)="clearAllFilters()"
+            type="button"
+            matTooltip="Remove all filters">
+            <mat-icon>clear_all</mat-icon>
+            Clear All Filters
+          </button>
         </div>
       </div>
     </div>
@@ -147,22 +271,30 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     animations: [
         trigger('slideIn', [
             transition(':enter', [
-                style({ transform: 'translateX(-100%)', opacity: 0 }),
-                animate('300ms ease-in', style({ transform: 'translateX(0%)', opacity: 1 }))
+                style({ transform: 'translateY(-20px)', opacity: 0 }),
+                animate('300ms ease-out', style({ transform: 'translateY(0)', opacity: 1 }))
+            ]),
+            transition(':leave', [
+                animate('200ms ease-in', style({ transform: 'translateY(-20px)', opacity: 0 }))
             ])
         ])
     ]
 })
-export class FilterBuilderComponent {
-    getFieldOptions(arg0: SelectedField): any {
-        return [];
-    }
-    getValuePlaceholder(_t8: FilterCondition) {
-        return '';
-    }
+export class FilterBuilderComponent implements OnInit {
     @Input() availableFields: SelectedField[] = [];
     @Input() filters: FilterCondition[] = [];
     @Output() filtersChanged = new EventEmitter<FilterCondition[]>();
+
+    filterLogic: 'AND' | 'OR' = 'AND';
+
+    ngOnInit(): void {
+        // Initialize any filters that don't have display text
+        this.filters.forEach(filter => {
+            if (!filter.displayText) {
+                this.updateFilterDisplayText(filter);
+            }
+        });
+    }
 
     addFilter(): void {
         const newFilter: FilterCondition = {
@@ -174,28 +306,72 @@ export class FilterBuilderComponent {
         };
 
         this.filters = [...this.filters, newFilter];
-        this.filtersChanged.emit(this.filters);
+        this.emitChanges();
     }
 
     removeFilter(index: number): void {
         this.filters = this.filters.filter((_, i) => i !== index);
-        this.filtersChanged.emit(this.filters);
+        this.emitChanges();
+    }
+
+    clearAllFilters(): void {
+        if (confirm('Are you sure you want to remove all filters?')) {
+            this.filters = [];
+            this.emitChanges();
+        }
     }
 
     onFilterFieldChanged(filter: FilterCondition, index: number): void {
         // Reset operator and value when field changes
         filter.operator = this.getDefaultOperator(filter.field);
-        filter.value = null;
+        filter.value = this.initializeValueForOperator(filter.operator);
         this.updateFilterDisplayText(filter);
-        this.onFilterChanged();
+        this.emitChanges();
     }
-    getDefaultOperator(field: SelectedField): FilterOperator {
-        return FilterOperator.EQUALS;
+
+    onFilterOperatorChanged(filter: FilterCondition): void {
+        // Initialize appropriate value structure for operator
+        filter.value = this.initializeValueForOperator(filter.operator);
+        this.updateFilterDisplayText(filter);
+        this.emitChanges();
     }
 
     onFilterChanged(): void {
         this.filters.forEach(filter => this.updateFilterDisplayText(filter));
+        this.emitChanges();
+    }
+
+    private emitChanges(): void {
         this.filtersChanged.emit(this.filters);
+    }
+
+    getDefaultOperator(field: SelectedField): FilterOperator {
+        if (!field) return FilterOperator.EQUALS;
+        
+        switch (field.dataType) {
+            case FieldDataType.STRING:
+                return FilterOperator.CONTAINS;
+            case FieldDataType.DATE:
+                return FilterOperator.EQUALS;
+            case FieldDataType.NUMBER:
+            case FieldDataType.CURRENCY:
+            case FieldDataType.FLOAT:
+            case FieldDataType.DOUBLE:
+            case FieldDataType.DECIMAL:
+                return FilterOperator.EQUALS;
+            default:
+                return FilterOperator.EQUALS;
+        }
+    }
+
+    initializeValueForOperator(operator: FilterOperator): any {
+        if (operator === FilterOperator.BETWEEN) {
+            return { start: null, end: null };
+        }
+        if (operator === FilterOperator.IN_LIST) {
+            return [];
+        }
+        return null;
     }
 
     getAvailableOperators(field: SelectedField): Array<{ value: FilterOperator, label: string }> {
@@ -204,51 +380,135 @@ export class FilterBuilderComponent {
             { value: FilterOperator.NOT_EQUALS, label: 'does not equal' }
         ];
 
-        switch (field.dataType) {
-            case 'string':
-                return [
-                    ...baseOperators,
-                    { value: FilterOperator.CONTAINS, label: 'contains' },
-                    { value: FilterOperator.STARTS_WITH, label: 'starts with' },
-                    { value: FilterOperator.IN_LIST, label: 'is one of' }
-                ];
-            case 'number':
-            case 'currency':
-                return [
-                    ...baseOperators,
-                    { value: FilterOperator.GREATER_THAN, label: 'is greater than' },
-                    { value: FilterOperator.LESS_THAN, label: 'is less than' },
-                    { value: FilterOperator.BETWEEN, label: 'is between' }
-                ];
-            case 'date':
-                return [
-                    ...baseOperators,
-                    { value: FilterOperator.GREATER_THAN, label: 'is after' },
-                    { value: FilterOperator.LESS_THAN, label: 'is before' },
-                    { value: FilterOperator.BETWEEN, label: 'is between' }
-                ];
-            default:
-                return baseOperators;
+        const dataType = field.dataType.toString().toLowerCase();
+
+        if (dataType === 'string' || dataType === FieldDataType.STRING.toLowerCase()) {
+            return [
+                ...baseOperators,
+                { value: FilterOperator.CONTAINS, label: 'contains' },
+                { value: FilterOperator.STARTS_WITH, label: 'starts with' },
+                { value: FilterOperator.IN_LIST, label: 'is one of' }
+            ];
         }
+        
+        if (dataType === 'number' || dataType === 'currency' || 
+            dataType === 'float' || dataType === 'double' || 
+            dataType === 'decimal' || dataType === 'numeric' ||
+            dataType === 'smallint' || dataType === 'bigint' || dataType === 'money') {
+            return [
+                ...baseOperators,
+                { value: FilterOperator.GREATER_THAN, label: 'is greater than' },
+                { value: FilterOperator.LESS_THAN, label: 'is less than' },
+                { value: FilterOperator.BETWEEN, label: 'is between' },
+                { value: FilterOperator.IN_LIST, label: 'is one of' }
+            ];
+        }
+        
+        if (dataType === 'date') {
+            return [
+                ...baseOperators,
+                { value: FilterOperator.GREATER_THAN, label: 'is after' },
+                { value: FilterOperator.LESS_THAN, label: 'is before' },
+                { value: FilterOperator.BETWEEN, label: 'is between' }
+            ];
+        }
+        
+        return baseOperators;
     }
 
     getValueInputType(filter: FilterCondition): string {
         if (!filter.field) return 'text';
 
         if (filter.operator === FilterOperator.BETWEEN) {
-            return filter.field.dataType === 'date' ? 'daterange' : 'numberrange';
+            const dataType = filter.field.dataType.toString().toLowerCase();
+            return dataType === 'date' ? 'daterange' : 'numberrange';
         }
 
         if (filter.operator === FilterOperator.IN_LIST) {
-            return 'multiselect';
+            // Check if we have predefined options
+            const options = this.getFieldOptions(filter.field);
+            return options.length > 0 ? 'multiselect' : 'csv';
         }
 
-        return filter.field.dataType === 'date' ? 'date' :
-            filter.field.dataType === 'number' ? 'number' : 'text';
+        const dataType = filter.field.dataType.toString().toLowerCase();
+        if (dataType === 'date') return 'date';
+        if (dataType === 'number' || dataType === 'currency' || 
+            dataType === 'float' || dataType === 'double' || 
+            dataType === 'decimal' || dataType === 'numeric' ||
+            dataType === 'smallint' || dataType === 'bigint' || dataType === 'money') {
+            return 'number';
+        }
+        return 'text';
+    }
+
+    getValuePlaceholder(filter: FilterCondition): string {
+        if (!filter.field || !filter.operator) return '';
+
+        const dataType = filter.field.dataType.toString().toLowerCase();
+        
+        if (filter.operator === FilterOperator.IN_LIST) {
+            return 'Enter values separated by commas (e.g., value1, value2, value3)';
+        }
+
+        switch (dataType) {
+            case 'string':
+                if (filter.operator === FilterOperator.CONTAINS) return 'Enter text to search for...';
+                if (filter.operator === FilterOperator.STARTS_WITH) return 'Enter beginning text...';
+                return 'Enter value...';
+            case 'number':
+            case 'currency':
+            case 'float':
+            case 'double':
+            case 'decimal':
+            case 'numeric':
+            case 'smallint':
+            case 'bigint':
+            case 'money':
+                return 'Enter number...';
+            case 'date':
+                return 'Select date...';
+            default:
+                return 'Enter value...';
+        }
+    }
+
+    getFieldOptions(field: SelectedField): Array<{ value: any, label: string }> {
+        // This could be enhanced to fetch actual distinct values from the backend
+        // For now, return empty array - the component will show CSV input instead
+        // TODO: Implement API call to fetch distinct values for the field
+        return [];
+    }
+
+    needsValueInput(operator: FilterOperator): boolean {
+        // Some operators like IS_NULL, IS_NOT_NULL don't need value input
+        // For now, all our operators need values
+        return true;
+    }
+
+    isFilterValid(filter: FilterCondition): boolean {
+        if (!filter.field || !filter.operator) return false;
+        
+        if (!this.needsValueInput(filter.operator)) return true;
+
+        if (filter.operator === FilterOperator.BETWEEN) {
+            return filter.value?.start != null && filter.value?.end != null;
+        }
+
+        if (filter.operator === FilterOperator.IN_LIST) {
+            if (Array.isArray(filter.value)) {
+                return filter.value.length > 0;
+            }
+            if (typeof filter.value === 'string') {
+                return filter.value.trim().length > 0;
+            }
+            return false;
+        }
+
+        return filter.value != null && filter.value !== '';
     }
 
     private updateFilterDisplayText(filter: FilterCondition): void {
-        if (!filter.field || !filter.operator || filter.value === null) {
+        if (!filter.field || !filter.operator) {
             filter.displayText = '';
             return;
         }
@@ -257,16 +517,97 @@ export class FilterBuilderComponent {
         const operatorText = this.getOperatorDisplayText(filter.operator);
         const valueText = this.getValueDisplayText(filter);
 
-        filter.displayText = `${fieldName} ${operatorText} ${valueText}`;
+        if (!this.needsValueInput(filter.operator)) {
+            filter.displayText = `${fieldName} ${operatorText}`;
+        } else if (valueText) {
+            filter.displayText = `${fieldName} ${operatorText} ${valueText}`;
+        } else {
+            filter.displayText = `${fieldName} ${operatorText} (incomplete)`;
+        }
     }
-    getValueDisplayText(filter: FilterCondition) {
-        return '';
+
+    getValueDisplayText(filter: FilterCondition): string {
+        if (!this.isFilterValid(filter)) return '';
+
+        if (filter.operator === FilterOperator.BETWEEN) {
+            const dataType = filter.field.dataType.toString().toLowerCase();
+            if (dataType === 'date') {
+                return `${this.formatDate(filter.value.start)} and ${this.formatDate(filter.value.end)}`;
+            }
+            return `${filter.value.start} and ${filter.value.end}`;
+        }
+
+        if (filter.operator === FilterOperator.IN_LIST) {
+            if (Array.isArray(filter.value)) {
+                return filter.value.length > 3 
+                    ? `${filter.value.slice(0, 3).join(', ')}... (${filter.value.length} values)`
+                    : filter.value.join(', ');
+            }
+            if (typeof filter.value === 'string') {
+                const values = filter.value.split(',').map(v => v.trim()).filter(v => v);
+                return values.length > 3
+                    ? `${values.slice(0, 3).join(', ')}... (${values.length} values)`
+                    : values.join(', ');
+            }
+        }
+
+        const dataType = filter.field.dataType.toString().toLowerCase();
+        if (dataType === 'date') {
+            return this.formatDate(filter.value);
+        }
+
+        return String(filter.value);
     }
-    getOperatorDisplayText(operator: FilterOperator) {
-        return '';
+
+    getOperatorDisplayText(operator: FilterOperator): string {
+        const operatorMap: { [key: string]: string } = {
+            [FilterOperator.EQUALS]: 'equals',
+            [FilterOperator.NOT_EQUALS]: 'does not equal',
+            [FilterOperator.CONTAINS]: 'contains',
+            [FilterOperator.STARTS_WITH]: 'starts with',
+            [FilterOperator.GREATER_THAN]: 'is greater than',
+            [FilterOperator.LESS_THAN]: 'is less than',
+            [FilterOperator.BETWEEN]: 'is between',
+            [FilterOperator.IN_LIST]: 'is one of'
+        };
+        return operatorMap[operator] || operator;
+    }
+
+    getFieldTypeDisplay(dataType: FieldDataType | string): string {
+        const typeMap: { [key: string]: string } = {
+            'string': 'Text',
+            'number': 'Number',
+            'date': 'Date',
+            'boolean': 'Yes/No',
+            'currency': 'Currency',
+            'float': 'Decimal',
+            'double': 'Decimal',
+            'decimal': 'Decimal',
+            'numeric': 'Number',
+            'smallint': 'Number',
+            'bigint': 'Number',
+            'money': 'Currency'
+        };
+        return typeMap[dataType.toString().toLowerCase()] || 'Text';
+    }
+
+    getFilterSummary(): string {
+        const validFilters = this.filters.filter(f => this.isFilterValid(f));
+        if (validFilters.length === 0) return 'No complete filters defined yet.';
+        if (validFilters.length === 1) return validFilters[0].displayText;
+        
+        const logic = this.filterLogic.toLowerCase();
+        return `Show records where ${validFilters.map(f => f.displayText).join(` ${logic} `)}`;
+    }
+
+    private formatDate(dateValue: any): string {
+        if (!dateValue) return '';
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) return String(dateValue);
+        return date.toLocaleDateString();
     }
 
     private generateId(): string {
-        return Math.random().toString(36).substr(2, 9);
+        return `filter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 }
