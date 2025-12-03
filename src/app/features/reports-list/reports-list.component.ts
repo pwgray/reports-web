@@ -125,8 +125,8 @@ export class ReportsListComponent implements OnInit {
 
   viewReport(report: ReportDefinition, event: MouseEvent) {
     event.stopPropagation();
-    // For now, route to builder in a preview-oriented mode if desired.
-    this.router.navigate(['/builder',report.id], { state: { reportId: report.id, view: true } });
+    // Navigate to the dedicated report viewer page
+    this.router.navigate(['/report', report.id]);
   }
 
   editReport(report: ReportDefinition, event: MouseEvent) {

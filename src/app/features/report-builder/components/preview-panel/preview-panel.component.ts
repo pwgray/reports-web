@@ -67,8 +67,8 @@ import { ChartPreviewComponent } from "../chart-preview/chart-preview.component"
           <!-- Table View -->
           <div *ngIf="selectedFormat === 'table'" class="table-preview">
             <div class="table-info">
-              <span class="record-count">{{ previewData.totalRows | number }} total records</span>
-              <span class="execution-time">Generated in {{ previewData.executionTime }}ms</span>
+              <span class="record-count">{{ previewData['totalRows'] | number }} total records</span>
+              <span class="execution-time">Generated in {{ previewData['executionTime'] }}ms</span>
             </div>
             
             <div class="table-container">
@@ -91,8 +91,8 @@ import { ChartPreviewComponent } from "../chart-preview/chart-preview.component"
               </table>
             </div>
             
-            <div class="preview-footer" *ngIf="previewData.totalRows > previewData.data.length">
-              <p>Showing first {{ previewData.data.length }} of {{ previewData.totalRows }} records</p>
+            <div class="preview-footer" *ngIf="previewData['totalRows'] > previewData['data'].length">
+              <p>Showing first {{ previewData['data'].length }} of {{ previewData['totalRows'] }} records</p>
             </div>
           </div>
 
@@ -231,7 +231,7 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  getRecommendedChartType(): string {
+  getRecommendedChartType(): "table" | "bar" | "line" {
     const numericFields = this.report.selectedFields.filter(f => 
       f.dataType === 'number' || f.dataType === 'currency'
     );
