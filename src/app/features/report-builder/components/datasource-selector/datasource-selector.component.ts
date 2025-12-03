@@ -185,7 +185,7 @@ import { ReportBuilderService } from "../../services/report-builder.service";
                     </span>
                     <span class="table-count" *ngIf="datasource.schema">
                       <mat-icon class="count-icon">table_chart</mat-icon>
-                      {{ datasource.schema.tables?.length || 0 }} tables
+                      {{ datasource.schema.tables.length || 0 }} tables
                     </span>
                   </div>
                 </div>
