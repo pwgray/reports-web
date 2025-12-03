@@ -220,7 +220,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
   onDataSourceSelected(dataSource: DataSourceInfo): void {
     this.report.dataSource = dataSource;
-    this.loadSchema(dataSource.id);
+    if(dataSource && dataSource.id) {
+      this.loadSchema(dataSource.id);
+    }
   }
 
   onFieldsChanged(fields: SelectedField[]): void {
