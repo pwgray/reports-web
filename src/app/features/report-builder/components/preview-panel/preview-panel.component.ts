@@ -6,6 +6,9 @@ import { PreviewResult } from "../../../../core/models/preview-result.model";
 import { CommonModule } from "@angular/common";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ChartPreviewComponent } from "../chart-preview/chart-preview.component";
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatIconModule } from '@angular/material/icon';
+import * as XLSX from 'xlsx';
 
 // features/report-builder/components/preview-panel/preview-panel.component.ts
 @Component({
@@ -13,7 +16,9 @@ import { ChartPreviewComponent } from "../chart-preview/chart-preview.component"
   imports: [
     CommonModule,
     FontAwesomeModule,
-    ChartPreviewComponent
+    ChartPreviewComponent,
+    MatButtonToggleModule,
+    MatIconModule
   ],
   template: `
     <div class="preview-panel">
@@ -28,15 +33,17 @@ import { ChartPreviewComponent } from "../chart-preview/chart-preview.component"
             Refresh
           </button>
           
-          <div class="format-toggle">
-            <button 
-              *ngFor="let format of formats"
-              class="format-btn"
-              [class.active]="selectedFormat === format.value"
-              (click)="selectedFormat = format.value; refreshPreview()">
+          <mat-button-toggle-group 
+            class="format-toggle"
+            [(value)]="selectedFormat"
+            (change)="refreshPreview()">
+            <mat-button-toggle 
+              *ngFor="let format of formats" 
+              [value]="format.value">
+              <mat-icon>{{ format.icon }}</mat-icon>
               {{ format.label }}
-            </button>
-          </div>
+            </mat-button-toggle>
+          </mat-button-toggle-group>
         </div>
       </div>
 
@@ -120,8 +127,8 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
   
 
   formats = [
-    { value: 'table', label: 'Table' },
-    { value: 'chart', label: 'Chart' }
+    { value: 'table', label: 'Table', icon: 'table_chart' },
+    { value: 'chart', label: 'Chart', icon: 'bar_chart' }
   ];
 
   private destroy$ = new Subject<void>();
@@ -243,5 +250,90 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
       return 'bar'; // Categorical comparison
     }
     return 'table'; // Fallback to table
+  }
+
+  /**
+   * Export report data to Excel
+   * Public method that can be called from parent components
+   */
+  public exportToExcel(fileName?: string): void {
+    if (!this.previewData || !this.previewData.data || this.previewData.data.length === 0) {
+      console.warn('No data available to export');
+      return;
+    }
+
+    try {
+      // Prepare data for Excel
+      const exportData = this.previewData.data.map(row => {
+        const formattedRow: any = {};
+        this.report.selectedFields.forEach(field => {
+          const columnName = field.displayName || field.fieldName;
+          const value = row[field.fieldName];
+          
+          // Format the value appropriately for Excel
+          formattedRow[columnName] = this.formatValueForExcel(value, field);
+        });
+        return formattedRow;
+      });
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+      // Auto-size columns
+      const columnWidths = this.report.selectedFields.map(field => {
+        const headerLength = (field.displayName || field.fieldName).length;
+        const maxDataLength = Math.max(
+          ...this.previewData!.data.slice(0, 100).map(row => {
+            const value = this.formatValueForExcel(row[field.fieldName], field);
+            return String(value).length;
+          })
+        );
+        return { wch: Math.min(Math.max(headerLength, maxDataLength) + 2, 50) };
+      });
+      worksheet['!cols'] = columnWidths;
+
+      // Create workbook and add worksheet
+      const workbook = XLSX.utils.book_new();
+      const sheetName = this.report.name ? 
+        this.report.name.substring(0, 31) : // Excel sheet name max length is 31
+        'Report Data';
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      // Generate file name
+      const defaultFileName = `${this.report.name || 'Report'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const finalFileName = fileName || defaultFileName;
+
+      // Download file
+      XLSX.writeFile(workbook, finalFileName);
+
+      console.log(`Exported ${this.previewData.data.length} rows to ${finalFileName}`);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Format value appropriately for Excel export
+   */
+  private formatValueForExcel(value: any, field: SelectedField): any {
+    if (value === null || value === undefined) return '';
+
+    switch (field.dataType) {
+      case 'currency':
+      case 'number':
+        // Return as number for Excel to recognize it
+        return typeof value === 'number' ? value : parseFloat(value) || 0;
+      
+      case 'date':
+        // Return as Date object for Excel
+        return value instanceof Date ? value : new Date(value);
+      
+      case 'boolean':
+        return value ? 'Yes' : 'No';
+      
+      default:
+        return String(value);
+    }
   }
 }

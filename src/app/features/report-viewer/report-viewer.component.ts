@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from "@angular/core";
+import { Component, OnInit, OnDestroy, ViewChild } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
 import { FormsModule } from "@angular/forms";
@@ -93,6 +93,8 @@ import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar";
   styleUrls: ['./report-viewer.component.scss']
 })
 export class ReportViewerComponent implements OnInit, OnDestroy {
+  @ViewChild(PreviewPanelComponent) previewPanel?: PreviewPanelComponent;
+
   faArrowLeft = faArrowLeft;
   faFilter = faFilter;
   faDownload = faDownload;
@@ -194,8 +196,19 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
   }
 
   exportReport(): void {
-    this.snackBar.open('Export functionality coming soon', 'Close', { duration: 2000 });
-    // TODO: Implement export functionality
+    if (!this.previewPanel) {
+      this.snackBar.open('Preview panel not available', 'Close', { duration: 2000 });
+      return;
+    }
+
+    try {
+      const fileName = `${this.report?.name || 'Report'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      this.previewPanel.exportToExcel(fileName);
+      this.snackBar.open('Report exported successfully', 'Close', { duration: 2000 });
+    } catch (error) {
+      console.error('Export failed:', error);
+      this.snackBar.open('Failed to export report', 'Close', { duration: 3000 });
+    }
   }
 
   goBack(): void {
