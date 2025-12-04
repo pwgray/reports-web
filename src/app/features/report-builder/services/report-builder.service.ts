@@ -82,15 +82,35 @@ export class ReportBuilderService {
     return this.http.get<SchemaInfo>(`${this.apiUrl}/data-sources/${dataSourceId}/schema`);
   }
 
-  introspectSchema(connectionString: string, type: string): Observable<SchemaInfo> {
-    return this.http.post<SchemaInfo>(`${this.apiUrl}/data-sources/introspect`, { connectionString, type });
+  introspectSchema(
+    server: string, 
+    port: number | undefined, 
+    database: string, 
+    username: string, 
+    password: string, 
+    type: string,
+    includedSchemas?: string[],
+    includedObjectTypes?: string[],
+    objectNamePattern?: string
+  ): Observable<SchemaInfo> {
+    return this.http.post<SchemaInfo>(`${this.apiUrl}/data-sources/introspect`, { 
+      server, 
+      port, 
+      database, 
+      username,
+      password, 
+      type,
+      includedSchemas,
+      includedObjectTypes,
+      objectNamePattern
+    });
   }
 
-  createDataSource(payload: { name: string; type: string; connectionString: string; schema?: SchemaInfo }): Observable<DataSourceInfo> {
+  createDataSource(payload: { name: string; type: string; server: string; port?: number; database: string; username: string; password: string; schema?: SchemaInfo }): Observable<DataSourceInfo> {
     return this.http.post<DataSourceInfo>(`${this.apiUrl}/data-sources`, payload);
   }
 
-  updateDataSource(id: string, payload: { name: string; type: string; connectionString: string; schema?: SchemaInfo }): Observable<DataSourceInfo> {
+  updateDataSource(id: string, payload: { name: string; type: string; server: string; port?: number; database: string; username: string; password: string; schema?: SchemaInfo }): Observable<DataSourceInfo> {
     return this.http.put<DataSourceInfo>(`${this.apiUrl}/data-sources/${id}`, payload);
   }
 

@@ -103,18 +103,130 @@ import { ReportBuilderService } from "../../services/report-builder.service";
               </mat-select>
             </div>
 
-            <div class="form-field full-width">
-              <label for="ds-connection">Connection String *</label>
+            <div class="form-field">
+              <label for="ds-server">Server *</label>
               <input 
-                id="ds-connection"
+                id="ds-server"
                 type="text" 
-                [(ngModel)]="formData.connectionString" 
-                placeholder="Server=...;Database=...;User ID=...;Password=...;"
+                [(ngModel)]="formData.server" 
+                placeholder="e.g. localhost or 192.168.1.100"
+                class="mat-input" />
+            </div>
+
+            <div class="form-field">
+              <label for="ds-port">Port</label>
+              <input 
+                id="ds-port"
+                type="number" 
+                [(ngModel)]="formData.port" 
+                placeholder="e.g. 1433 for SQL Server"
                 class="mat-input" />
               <small class="field-hint">
                 <mat-icon class="hint-icon">info</mat-icon>
-                Ensure the connection string is valid and secure
+                Leave empty for default port
               </small>
+            </div>
+
+            <div class="form-field">
+              <label for="ds-database">Database *</label>
+              <input 
+                id="ds-database"
+                type="text" 
+                [(ngModel)]="formData.database" 
+                placeholder="e.g. Northwind"
+                class="mat-input" />
+            </div>
+
+            <div class="form-field">
+              <label for="ds-username">Username *</label>
+              <input 
+                id="ds-username"
+                type="text" 
+                [(ngModel)]="formData.username" 
+                placeholder="e.g. sa"
+                class="mat-input" />
+            </div>
+
+            <div class="form-field">
+              <label for="ds-password">Password *</label>
+              <input 
+                id="ds-password"
+                type="password" 
+                [(ngModel)]="formData.password" 
+                placeholder="Enter password"
+                class="mat-input" />
+              <small class="field-hint">
+                <mat-icon class="hint-icon">info</mat-icon>
+                Password is stored securely
+              </small>
+            </div>
+          </div>
+
+          <!-- Schema Filtering Section -->
+          <div class="filter-section">
+            <h5 class="filter-title">
+              <mat-icon>filter_list</mat-icon>
+              Schema Filtering (Optional)
+            </h5>
+            <small class="filter-description">Filter which database objects to include</small>
+
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="ds-schemas">Include Schemas</label>
+                <mat-select 
+                  id="ds-schemas"
+                  [(ngModel)]="formData.includedSchemas"
+                  multiple
+                  placeholder="All schemas (leave empty for all)">
+                  <mat-option *ngFor="let schema of commonSchemas" [value]="schema">
+                    {{ schema }}
+                  </mat-option>
+                </mat-select>
+                <small class="field-hint">
+                  <mat-icon class="hint-icon">info</mat-icon>
+                  Select specific schemas (e.g., dbo, custom)
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label for="ds-object-types">Include Object Types</label>
+                <mat-select 
+                  id="ds-object-types"
+                  [(ngModel)]="formData.includedObjectTypes"
+                  multiple
+                  placeholder="All types (leave empty for all)">
+                  <mat-option value="table">
+                    <mat-icon>table_chart</mat-icon>
+                    Tables
+                  </mat-option>
+                  <mat-option value="view">
+                    <mat-icon>visibility</mat-icon>
+                    Views
+                  </mat-option>
+                  <mat-option value="stored_procedure">
+                    <mat-icon>code</mat-icon>
+                    Stored Procedures
+                  </mat-option>
+                </mat-select>
+                <small class="field-hint">
+                  <mat-icon class="hint-icon">info</mat-icon>
+                  Choose which object types to include
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label for="ds-name-pattern">Object Name Pattern</label>
+                <input 
+                  id="ds-name-pattern"
+                  type="text" 
+                  [(ngModel)]="formData.objectNamePattern" 
+                  placeholder="e.g., Customer% or %Order%"
+                  class="mat-input" />
+                <small class="field-hint">
+                  <mat-icon class="hint-icon">info</mat-icon>
+                  SQL LIKE pattern (% for wildcard)
+                </small>
+              </div>
             </div>
           </div>
 
@@ -273,9 +385,34 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
     showCreatePanel = false;
     editMode = false;
     editingId: string | null = null;
-    formData: { name: string; type: string; connectionString: string } = { name: '', type: 'sqlserver', connectionString: '' };
+    formData: { 
+      name: string; 
+      type: string; 
+      server: string; 
+      port?: number; 
+      database: string; 
+      username: string; 
+      password: string;
+      includedSchemas?: string[];
+      includedObjectTypes?: string[];
+      objectNamePattern?: string;
+    } = { 
+      name: '', 
+      type: 'sqlserver', 
+      server: 'localhost', 
+      port: undefined, 
+      database: '', 
+      username: '', 
+      password: '',
+      includedSchemas: [],
+      includedObjectTypes: [],
+      objectNamePattern: ''
+    };
     fetchedSchema: SchemaInfo | null = null;
     isFetching = false;
+    
+    // Common SQL Server schemas for the dropdown
+    commonSchemas = ['dbo', 'sys', 'guest', 'INFORMATION_SCHEMA'];
     saving = false;
 
     constructor(
@@ -334,7 +471,14 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
         this.formData = {
             name: datasource.name,
             type: datasource.type,
-            connectionString: datasource.connectionString || ''
+            server: datasource.server,
+            port: datasource.port,
+            database: datasource.database,
+            username: datasource.username,
+            password: datasource.password,
+            includedSchemas: datasource.includedSchemas || [],
+            includedObjectTypes: datasource.includedObjectTypes || [],
+            objectNamePattern: datasource.objectNamePattern || ''
         };
         this.fetchedSchema = datasource.schema || null;
         this.showCreatePanel = true;
@@ -373,30 +517,60 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
     }
 
     canFetchSchema(): boolean {
-      return !!this.formData.connectionString && !!this.formData.type && !!this.formData.name;
+      return !!this.formData.server && !!this.formData.database && !!this.formData.username && 
+             !!this.formData.password && !!this.formData.type && !!this.formData.name;
     }
 
     fetchSchema(): void {
       if (!this.canFetchSchema()) return;
       this.isFetching = true;
       this.fetchedSchema = null;
-      console.log('connection string: ', this.formData.connectionString);
-      this.reportBuilderService.introspectSchema(this.formData.connectionString, this.formData.type).subscribe({
+      console.log('Connection details:', { 
+        server: this.formData.server, 
+        port: this.formData.port, 
+        database: this.formData.database,
+        username: this.formData.username,
+        includedSchemas: this.formData.includedSchemas,
+        includedObjectTypes: this.formData.includedObjectTypes,
+        objectNamePattern: this.formData.objectNamePattern
+      });
+      this.reportBuilderService.introspectSchema(
+        this.formData.server, 
+        this.formData.port, 
+        this.formData.database, 
+        this.formData.username, 
+        this.formData.password, 
+        this.formData.type,
+        this.formData.includedSchemas && this.formData.includedSchemas.length > 0 ? this.formData.includedSchemas : undefined,
+        this.formData.includedObjectTypes && this.formData.includedObjectTypes.length > 0 ? this.formData.includedObjectTypes : undefined,
+        this.formData.objectNamePattern || undefined
+      ).subscribe({
         next: (schema) => {
           this.fetchedSchema = schema;
           this.isFetching = false;
-          this.snackBar.open('Schema fetched successfully', 'Close', { duration: 2500 });
+          const filterInfo = [];
+          if (this.formData.includedSchemas && this.formData.includedSchemas.length > 0) {
+            filterInfo.push(`schemas: ${this.formData.includedSchemas.join(', ')}`);
+          }
+          if (this.formData.includedObjectTypes && this.formData.includedObjectTypes.length > 0) {
+            filterInfo.push(`types: ${this.formData.includedObjectTypes.join(', ')}`);
+          }
+          const message = filterInfo.length > 0 
+            ? `Schema fetched with filters (${filterInfo.join('; ')})`
+            : 'Schema fetched successfully';
+          this.snackBar.open(message, 'Close', { duration: 3000 });
         },
         error: (err) => {
           console.error(err);
           this.isFetching = false;
-          this.snackBar.open('Failed to fetch schema. Check your connection string.', 'Close', { duration: 3000 });
+          this.snackBar.open('Failed to fetch schema. Check your connection details.', 'Close', { duration: 3000 });
         }
       });
     }
 
     canSave(): boolean {
-      return !!this.formData.name && !!this.formData.type && !!this.formData.connectionString && !!this.fetchedSchema;
+      return !!this.formData.name && !!this.formData.type && !!this.formData.server && 
+             !!this.formData.database && !!this.formData.username && !!this.formData.password && !!this.fetchedSchema;
     }
 
     saveDataSource(): void {
@@ -406,7 +580,14 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
       const payload = {
         name: this.formData.name,
         type: this.formData.type,
-        connectionString: this.formData.connectionString,
+        server: this.formData.server,
+        port: this.formData.port,
+        database: this.formData.database,
+        username: this.formData.username,
+        password: this.formData.password,
+        includedSchemas: this.formData.includedSchemas && this.formData.includedSchemas.length > 0 ? this.formData.includedSchemas : undefined,
+        includedObjectTypes: this.formData.includedObjectTypes && this.formData.includedObjectTypes.length > 0 ? this.formData.includedObjectTypes : undefined,
+        objectNamePattern: this.formData.objectNamePattern || undefined,
         schema: this.fetchedSchema!
       };
 
@@ -443,7 +624,18 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
     }
 
     private resetForm(): void {
-      this.formData = { name: '', type: 'sqlserver', connectionString: '' };
+      this.formData = { 
+        name: '', 
+        type: 'sqlserver', 
+        server: 'localhost', 
+        port: undefined, 
+        database: '', 
+        username: '', 
+        password: '',
+        includedSchemas: [],
+        includedObjectTypes: [],
+        objectNamePattern: ''
+      };
       this.fetchedSchema = null;
       this.isFetching = false;
       this.saving = false;
