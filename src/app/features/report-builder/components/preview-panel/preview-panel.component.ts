@@ -8,7 +8,14 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { ChartPreviewComponent } from "../chart-preview/chart-preview.component";
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import * as XLSX from 'xlsx';
+
+export const MAX_PREVIEW_LIMIT = 1000000; // 1 million rows
+export const CHUNK_SIZE = 50000; // Load 50k rows at a time for better UX
+export const VIRTUAL_SCROLL_ITEM_SIZE = 48; // Height of each row in pixels
 
 // features/report-builder/components/preview-panel/preview-panel.component.ts
 @Component({
@@ -18,7 +25,10 @@ import * as XLSX from 'xlsx';
     FontAwesomeModule,
     ChartPreviewComponent,
     MatButtonToggleModule,
-    MatIconModule
+    MatIconModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    ScrollingModule
   ],
   template: `
     <div class="preview-panel">
@@ -50,8 +60,12 @@ import * as XLSX from 'xlsx';
       <div class="preview-content">
         <!-- Loading State -->
         <div *ngIf="isLoading" class="loading-state">
-          <div class="spinner"></div>
-          <p>Generating preview...</p>
+          <mat-spinner diameter="50"></mat-spinner>
+          <p>Loading data...</p>
+          <div *ngIf="loadingProgress > 0" class="loading-progress">
+            <mat-progress-bar mode="determinate" [value]="loadingProgress"></mat-progress-bar>
+            <span>{{ loadingProgress }}% - {{ loadedRows | number }} / {{ totalRows | number }} rows</span>
+          </div>
         </div>
 
         <!-- Error State -->
@@ -71,40 +85,85 @@ import * as XLSX from 'xlsx';
 
         <!-- Preview Data -->
         <div *ngIf="previewData && !isLoading && !error" class="preview-data">
-          <!-- Table View -->
+          <!-- Table View with Virtual Scrolling -->
           <div *ngIf="selectedFormat === 'table'" class="table-preview">
             <div class="table-info">
-              <span class="record-count">{{ previewData['totalRows'] | number }} total records</span>
+              <span class="record-count">
+                <strong>{{ previewData['totalRows'] | number }}</strong> total records
+              </span>
               <span class="execution-time">Generated in {{ previewData['executionTime'] }}ms</span>
+              <button class="export-btn" (click)="exportToExcel()" [disabled]="!previewData || previewData.data.length === 0">
+                <mat-icon>download</mat-icon> Export to Excel
+              </button>
             </div>
             
-            <div class="table-container">
-              <table class="preview-table">
-                <thead>
-                  <tr>
-                    <th *ngFor="let field of report.selectedFields">
-                      {{ field.displayName }}
-                      <span class="field-type">({{ getFieldTypeDisplay(field.dataType) }})</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of previewData.data; let i = index">
-                    <td *ngFor="let field of report.selectedFields">
-                      {{ formatCellValue(row[field.displayName || field.fieldName], field) }}
-                    </td>
-                  </tr>
-                  <tr *ngIf="previewData.data.length === 0">
-                    <td [attr.colspan]="report.selectedFields.length" class="no-data-message">
-                      No data available - table may be empty
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <!-- Virtual Scroll Container for Large Datasets -->
+            <div class="virtual-table-container" *ngIf="previewData.data.length > 100; else regularTable">
+              <div class="table-header-fixed">
+                <table class="preview-table">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let field of report.selectedFields" [style.min-width]="'150px'">
+                        {{ field.displayName }}
+                        <span class="field-type">({{ getFieldTypeDisplay(field.dataType) }})</span>
+                      </th>
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+              
+              <cdk-virtual-scroll-viewport 
+                [itemSize]="virtualScrollItemSize" 
+                class="virtual-scroll-viewport"
+                [style.height.px]="600">
+                <table class="preview-table">
+                  <tbody>
+                    <tr *cdkVirtualFor="let row of previewData.data; let i = index" 
+                        [class.even-row]="i % 2 === 0">
+                      <td *ngFor="let field of report.selectedFields" [style.min-width]="'150px'">
+                        {{ formatCellValue(row[field.displayName || field.fieldName], field) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </cdk-virtual-scroll-viewport>
             </div>
+
+            <!-- Regular Table for Small Datasets -->
+            <ng-template #regularTable>
+              <div class="table-container">
+                <table class="preview-table">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let field of report.selectedFields">
+                        {{ field.displayName }}
+                        <span class="field-type">({{ getFieldTypeDisplay(field.dataType) }})</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of previewData.data; let i = index">
+                      <td *ngFor="let field of report.selectedFields">
+                        {{ formatCellValue(row[field.displayName || field.fieldName], field) }}
+                      </td>
+                    </tr>
+                    <tr *ngIf="previewData.data.length === 0">
+                      <td [attr.colspan]="report.selectedFields.length" class="no-data-message">
+                        No data available - table may be empty
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-template>
             
-            <div class="preview-footer" *ngIf="previewData['totalRows'] > previewData['data'].length">
-              <p>Showing first {{ previewData['data'].length }} of {{ previewData['totalRows'] }} records</p>
+            <div class="preview-footer">
+              <p *ngIf="previewData.data.length > 0">
+                Showing {{ previewData['data'].length | number }} of {{ previewData['totalRows'] | number }} records
+                <span *ngIf="previewData['totalRows'] > previewData['data'].length" class="load-more-hint">
+                  (Increase limit to see more)
+                </span>
+              </p>
             </div>
           </div>
 
@@ -126,10 +185,19 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
   @Input() report: ReportDefinition = {} as ReportDefinition;
   @Input() selectedFormat : string = 'table';
 
+
+
   previewData: PreviewResult | null = null;
   isLoading = false;
   error: string | null = null;
   
+  // Virtual scrolling properties
+  virtualScrollItemSize = VIRTUAL_SCROLL_ITEM_SIZE;
+  
+  // Progressive loading properties
+  loadingProgress = 0;
+  loadedRows = 0;
+  totalRows = 0;
 
   formats = [
     { value: 'table', label: 'Table', icon: 'table_chart' },
@@ -188,27 +256,47 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
 
     this.isLoading = true;
     this.error = null;
+    this.loadingProgress = 0;
+    this.loadedRows = 0;
+    this.totalRows = 0;
 
-    this.reportBuilderService.previewReport(this.report, 50) // Limit for preview
+    // Start timing
+    const startTime = Date.now();
+
+    this.reportBuilderService.previewReport(this.report, MAX_PREVIEW_LIMIT) // Limit for preview
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
           this.isLoading = false;
+          this.loadingProgress = 100;
           this.cdr.detectChanges();
         })
       )
       .subscribe({
         next: (data) => {
+          const loadTime = Date.now() - startTime;
+          
           console.log('✅ Preview data received:', data);
           console.log('📊 Data rows:', data?.data?.length || 0);
           console.log('🔍 First row sample:', data?.data?.[0]);
+          console.log(`⚡ Loaded in ${loadTime}ms`);
+          
           this.previewData = data;
+          this.loadedRows = data?.data?.length || 0;
+          this.totalRows = data?.['totalRows'] || 0;
+          this.loadingProgress = this.totalRows > 0 ? Math.round((this.loadedRows / this.totalRows) * 100) : 100;
           this.error = null;
+          
+          // Performance warning for large datasets
+          if (this.loadedRows > 100000) {
+            console.warn(`⚠️  Large dataset: ${this.loadedRows} rows. Consider using pagination or limiting results.`);
+          }
         },
         error: (error) => {
           console.error('❌ Preview error:', error);
           this.error = error.message || 'Failed to generate preview';
           this.previewData = null;
+          this.loadingProgress = 0;
         }
       });
   }
@@ -300,7 +388,7 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
             return String(value).length;
           })
         );
-        return { wch: Math.min(Math.max(headerLength, maxDataLength) + 2, 50) };
+        return { wch: Math.min(Math.max(headerLength, maxDataLength) + 2, MAX_PREVIEW_LIMIT) };
       });
       worksheet['!cols'] = columnWidths;
 

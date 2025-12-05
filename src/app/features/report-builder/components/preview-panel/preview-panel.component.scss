@@ -272,3 +272,134 @@
   100% { transform: rotate(360deg); }
 }
 
+// Virtual scrolling styles
+.virtual-table-container {
+  position: relative;
+  width: 100%;
+  margin-top: 12px;
+  
+  .table-header-fixed {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      
+      thead th {
+        background: #f5f5f5;
+        font-weight: 600;
+        text-align: left;
+        padding: 12px 16px;
+        border-bottom: 2px solid #e0e0e0;
+        white-space: nowrap;
+        
+        .field-type {
+          font-size: 11px;
+          color: #888;
+          font-weight: normal;
+          margin-left: 4px;
+        }
+      }
+    }
+  }
+  
+  .virtual-scroll-viewport {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      
+      tbody tr {
+        transition: background-color 0.15s;
+        
+        &:hover {
+          background-color: #f8f9fa;
+        }
+        
+        &.even-row {
+          background-color: #fafafa;
+        }
+        
+        td {
+          padding: 12px 16px;
+          border-bottom: 1px solid #e0e0e0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 300px;
+          font-size: 14px;
+        }
+      }
+    }
+  }
+}
+
+// Loading progress
+.loading-progress {
+  margin-top: 20px;
+  width: 100%;
+  max-width: 400px;
+  
+  mat-progress-bar {
+    margin-bottom: 8px;
+    height: 8px;
+    border-radius: 4px;
+  }
+  
+  span {
+    font-size: 13px;
+    color: #666;
+    display: block;
+    text-align: center;
+  }
+}
+
+// Export button styles
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #4caf50;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover:not(:disabled) {
+    background: #45a049;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.load-more-hint {
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
+  margin-left: 8px;
+}
+

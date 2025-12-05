@@ -34,7 +34,7 @@ export class ReportBuilderService {
     return this.http.get<DataSourceInfo[]>(`${this.apiUrl}/data-sources`);
   }
 
-  previewReport(report: ReportDefinition, limit = 100): Observable<PreviewResult> {
+  previewReport(report: ReportDefinition, limit = 1000000): Observable<PreviewResult> {
     return this.http.post<PreviewResult>(`${this.apiUrl}/reports/preview`, {
       ...report,
       limit
@@ -131,6 +131,17 @@ export class ReportBuilderService {
         'Pragma': 'no-cache',
         'Expires': '0'
       }
+    });
+  }
+
+  /**
+   * Export report to Excel using server-side generation
+   * Optimized for large datasets (up to 1M rows)
+   */
+  exportToExcel(report: ReportDefinition): Observable<Blob> {
+    console.log('📤 Requesting server-side Excel export...');
+    return this.http.post(`${this.apiUrl}/reports/export/excel`, report, {
+      responseType: 'blob'
     });
   }
 }
