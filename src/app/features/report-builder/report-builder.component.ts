@@ -183,6 +183,14 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   saveReport() {
+    // Ensure fields have schema information before saving
+    const currentSchema = this.schema$.getValue();
+    if (currentSchema && this.report.selectedFields.length > 0) {
+      console.log('💾 Ensuring fields have schema before save...');
+      this.enrichSelectedFieldsWithSchema(currentSchema);
+      console.log('💾 Fields after enrichment:', this.report.selectedFields);
+    }
+    
     this.reportBuilderService.saveReport(this.report).subscribe({
       next: () => {
         this.snackBar.open('Report saved', 'Close', { duration: 3000 });
@@ -290,6 +298,9 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
       tableSchemaMap.get(tableName)!.push(tableSchema);
     });
 
+    // Track if any fields were enriched
+    let enrichedCount = 0;
+
     // Update selected fields with schema information if missing
     this.report.selectedFields = this.report.selectedFields.map(field => {
       // If schema is already set, don't overwrite it
@@ -304,6 +315,7 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
         console.log(`📋 Enriching field ${field.tableName}.${field.fieldName} with schema: ${preferredSchema}` + 
                     (schemas.length > 1 ? ` (chose from: ${schemas.join(', ')})` : ''));
         
+        enrichedCount++;
         return { ...field, schema: preferredSchema };
       }
 
@@ -312,6 +324,16 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
 
     // Update the report in the service so other components get the enriched fields
     this.reportBuilderService.updateCurrentReport(this.report);
+
+    // Notify user if fields were enriched
+    if (enrichedCount > 0 && this.report.id) {
+      console.log(`✅ Enriched ${enrichedCount} fields with schema information`);
+      this.snackBar.open(
+        `Schema information added to ${enrichedCount} fields. Click "Save Report" to persist these changes.`,
+        'Dismiss',
+        { duration: 8000 }
+      );
+    }
   }
 
   private initializeReport(): ReportDefinition {
