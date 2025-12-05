@@ -2,6 +2,8 @@ export interface SchemaInfo {
   // Define the properties of SchemaInfo as needed
   tables: Array<{
     name: string;
+    schema?: string;         // Database schema name (e.g., 'dbo', 'public')
+    type?: string;           // Object type (e.g., 'base_table', 'view')
     displayName?: string;
     description?: string;
     category?: string;

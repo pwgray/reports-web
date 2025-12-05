@@ -144,6 +144,7 @@ export interface SelectedField {
   aggregation?: AggregationType;
   formatting?: FieldFormatting;
   relatedTable?: RelatedTableConfig; // For related data aggregation or sub-reports
+  schema?: string; // Database schema name (e.g., 'dbo', 'stage')
 }
 
 // Configuration for related table fields

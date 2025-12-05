@@ -261,7 +261,57 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   private loadSchema(dataSourceId: string): void {
     this.reportBuilderService.getSchema(dataSourceId)
       .pipe(takeUntil(this.destroy$))
-      .subscribe(schema => this.schema$.next(schema));
+      .subscribe(schema => {
+        this.schema$.next(schema);
+        // Enrich existing selected fields with schema information
+        if (this.report.selectedFields.length > 0) {
+          this.enrichSelectedFieldsWithSchema(schema);
+        }
+      });
+  }
+
+  /**
+   * Enrich selected fields with schema information from the loaded schema
+   * This is needed for reports loaded from the database that were saved without schema info
+   */
+  private enrichSelectedFieldsWithSchema(schema: SchemaInfo | null): void {
+    if (!schema || !schema.tables) return;
+
+    // Create a lookup map that can handle multiple schemas for the same table name
+    // Store all possible schemas for each table, with preference for 'dbo'
+    const tableSchemaMap = new Map<string, string[]>();
+    schema.tables.forEach(table => {
+      const tableName = table.name.toLowerCase();
+      const tableSchema = table.schema || 'dbo';
+      
+      if (!tableSchemaMap.has(tableName)) {
+        tableSchemaMap.set(tableName, []);
+      }
+      tableSchemaMap.get(tableName)!.push(tableSchema);
+    });
+
+    // Update selected fields with schema information if missing
+    this.report.selectedFields = this.report.selectedFields.map(field => {
+      // If schema is already set, don't overwrite it
+      if (field.schema) return field;
+
+      // Look up all possible schemas for this table
+      const schemas = tableSchemaMap.get(field.tableName.toLowerCase());
+      if (schemas && schemas.length > 0) {
+        // Prefer 'dbo' schema if available (it's the default SQL Server schema)
+        const preferredSchema = schemas.includes('dbo') ? 'dbo' : schemas[0];
+        
+        console.log(`📋 Enriching field ${field.tableName}.${field.fieldName} with schema: ${preferredSchema}` + 
+                    (schemas.length > 1 ? ` (chose from: ${schemas.join(', ')})` : ''));
+        
+        return { ...field, schema: preferredSchema };
+      }
+
+      return field;
+    });
+
+    // Update the report in the service so other components get the enriched fields
+    this.reportBuilderService.updateCurrentReport(this.report);
   }
 
   private initializeReport(): ReportDefinition {

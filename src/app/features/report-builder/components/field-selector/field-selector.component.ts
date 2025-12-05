@@ -130,8 +130,15 @@ interface HierarchyNode {
                       [icon]="category.expanded ? faChevronDown : faChevronRight" 
                       class="category-toggle-icon">
                     </fa-icon>
-                    <fa-icon [icon]="faTable" class="category-icon"></fa-icon>
-                    <span class="category-name">{{ category.displayName }}</span>
+                    <fa-icon [icon]="getObjectTypeIcon(category.objectType)" class="category-icon"></fa-icon>
+                    <div class="category-name-container">
+                      <span class="category-name">
+                        <span class="schema-prefix" *ngIf="category.schema">{{ category.schema }}.</span>{{ category.displayName }}
+                      </span>
+                      <span class="object-type-badge" *ngIf="category.objectType">
+                        {{ getObjectTypeDisplay(category.objectType) }}
+                      </span>
+                    </div>
                   </div>
                   <div class="category-actions">
                     <button 
@@ -213,15 +220,22 @@ interface HierarchyNode {
                       class="node-toggle-icon">
                     </fa-icon>
                     <fa-icon 
-                      [icon]="node.level === 0 ? faTable : faLayerGroup" 
+                      [icon]="getObjectTypeIcon(node.table.type || 'base_table')" 
                       class="node-icon"
                       [class.master-table]="node.level === 0"
                       [class.child-table]="node.level > 0">
                     </fa-icon>
-                    <span class="node-name">{{ node.table.displayName || node.table.name }}</span>
-                    <span class="relationship-info" *ngIf="node.relationship">
-                      ({{ node.relationship.cardinality.replace('_', ' ') }})
-                    </span>
+                    <div class="node-name-container">
+                      <span class="node-name">
+                        <span class="schema-prefix" *ngIf="node.table.schema">{{ node.table.schema }}.</span>{{ node.table.displayName || node.table.name }}
+                      </span>
+                      <span class="relationship-info" *ngIf="node.relationship">
+                        ({{ node.relationship.cardinality.replace('_', ' ') }})
+                      </span>
+                      <span class="object-type-badge" *ngIf="node.table.type">
+                        {{ getObjectTypeDisplay(node.table.type) }}
+                      </span>
+                    </div>
                   </div>
                   <div class="node-actions">
                     <button 
@@ -544,10 +558,13 @@ export class FieldSelectorComponent implements OnInit {
 
     this.allCategories = this.schema.tables.map(table => ({
       name: table.name,
+      schema: table.schema,
+      objectType: table.type || 'base_table',
       displayName: table.name || this.humanizeTableName(table.name),
       fields: table.columns.map(field => ({
         ...field,
         tableName: table.name,
+        schema: table.schema,
         displayName: field.name || this.humanizeFieldName(field.name)
       })),
       expanded: false
@@ -583,7 +600,8 @@ export class FieldSelectorComponent implements OnInit {
       fieldName: field.name,
       displayName: field.displayName || field.name,
       dataType: field.normalizedType || field.dataType,
-      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined
+      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
+      schema: field.schema // Include schema information
     };
 
     this.selectedFields = [...this.selectedFields, selectedField];
@@ -650,6 +668,30 @@ export class FieldSelectorComponent implements OnInit {
     return iconMap[dataType] || faTable;
   }
 
+  getObjectTypeIcon(objectType: string): any {
+    const iconMap: { [key: string]: any } = {
+      'base_table': faTable,
+      'view': faLayerGroup,
+      'table': faTable,
+      'stored_procedure': faCog,
+      'procedure': faCog,
+      'function': faCog
+    };
+    return iconMap[objectType] || faTable;
+  }
+
+  getObjectTypeDisplay(objectType: string): string {
+    const displayMap: { [key: string]: string } = {
+      'base_table': 'Table',
+      'view': 'View',
+      'table': 'Table',
+      'stored_procedure': 'Procedure',
+      'procedure': 'Procedure',
+      'function': 'Function'
+    };
+    return displayMap[objectType] || objectType;
+  }
+
   trackByFieldId(index: number, field: SelectedField): string {
     return field.id;
   }
@@ -686,9 +728,12 @@ export class FieldSelectorComponent implements OnInit {
       nodeMap.set(table.name, {
         table: {
           ...table,
+          schema: table.schema,
+          type: table.type || 'base_table',
           columns: table.columns.map(col => ({
             ...col,
             tableName: table.name,
+            schema: table.schema,
             displayName: col.displayName || col.name
           }))
         },
@@ -769,7 +814,8 @@ export class FieldSelectorComponent implements OnInit {
       fieldName: field.name,
       displayName: field.displayName || field.name,
       dataType: field.normalizedType || field.dataType,
-      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined
+      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
+      schema: field.schema // Include schema information
     }));
     
     // Add all new fields
@@ -788,7 +834,8 @@ export class FieldSelectorComponent implements OnInit {
       fieldName: field.name,
       displayName: field.displayName || field.name,
       dataType: field.normalizedType || field.dataType,
-      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined
+      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
+      schema: field.schema // Include schema information
     }));
     
     // Add all new fields

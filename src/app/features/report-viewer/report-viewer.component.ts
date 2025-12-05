@@ -116,12 +116,18 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    const reportId = this.route.snapshot.paramMap.get('id');
-    if (reportId) {
-      this.loadReport(reportId);
-    } else {
-      this.error = 'No report ID provided';
-    }
+    // Listen to route parameter changes to reload when navigating to different reports
+    // or when the same report is reloaded
+    this.route.paramMap
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(params => {
+        const reportId = params.get('id');
+        if (reportId) {
+          this.loadReport(reportId);
+        } else {
+          this.error = 'No report ID provided';
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -137,6 +143,9 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (report) => {
+          console.log('🎯 REPORT VIEWER - Raw report loaded from API:', report);
+          console.log('🎯 REPORT VIEWER - Selected fields from API:', report.selectedFields);
+          
           this.report = {
             id: report.id,
             name: report.name,
@@ -149,6 +158,9 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
             layout: report.layout ?? {},
             parameters: report.parameters ?? []
           } as ReportDefinition;
+          
+          console.log('🎯 REPORT VIEWER - Mapped report for viewer:', this.report);
+          console.log('🎯 REPORT VIEWER - Mapped selected fields:', this.report.selectedFields);
           
           // Initialize current filters from report
           this.currentFilters = [...(this.report.filters || [])];

@@ -123,6 +123,14 @@ export class ReportBuilderService {
   }
 
   getReport(id: string): Observable<ReportDefinition> {
-    return this.http.get<ReportDefinition>(`${this.apiUrl}/reports/${id}`);
+    // Add cache-busting to ensure fresh data is always loaded
+    const timestamp = new Date().getTime();
+    return this.http.get<ReportDefinition>(`${this.apiUrl}/reports/${id}?_=${timestamp}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
   }
 }

@@ -91,7 +91,12 @@ import * as XLSX from 'xlsx';
                 <tbody>
                   <tr *ngFor="let row of previewData.data; let i = index">
                     <td *ngFor="let field of report.selectedFields">
-                      {{ formatCellValue(row[field.fieldName], field) }}
+                      {{ formatCellValue(row[field.displayName || field.fieldName], field) }}
+                    </td>
+                  </tr>
+                  <tr *ngIf="previewData.data.length === 0">
+                    <td [attr.colspan]="report.selectedFields.length" class="no-data-message">
+                      No data available - table may be empty
                     </td>
                   </tr>
                 </tbody>
@@ -178,6 +183,9 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
       return;
     }
 
+    console.log('🔍 PREVIEW PANEL - Executing preview with report:', this.report);
+    console.log('🔍 PREVIEW PANEL - Selected fields being sent:', this.report.selectedFields);
+
     this.isLoading = true;
     this.error = null;
 
@@ -191,10 +199,14 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (data) => {
+          console.log('✅ Preview data received:', data);
+          console.log('📊 Data rows:', data?.data?.length || 0);
+          console.log('🔍 First row sample:', data?.data?.[0]);
           this.previewData = data;
           this.error = null;
         },
         error: (error) => {
+          console.error('❌ Preview error:', error);
           this.error = error.message || 'Failed to generate preview';
           this.previewData = null;
         }
@@ -268,7 +280,7 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
         const formattedRow: any = {};
         this.report.selectedFields.forEach(field => {
           const columnName = field.displayName || field.fieldName;
-          const value = row[field.fieldName];
+          const value = row[field.displayName || field.fieldName];
           
           // Format the value appropriately for Excel
           formattedRow[columnName] = this.formatValueForExcel(value, field);
@@ -284,7 +296,7 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
         const headerLength = (field.displayName || field.fieldName).length;
         const maxDataLength = Math.max(
           ...this.previewData!.data.slice(0, 100).map(row => {
-            const value = this.formatValueForExcel(row[field.fieldName], field);
+            const value = this.formatValueForExcel(row[field.displayName || field.fieldName], field);
             return String(value).length;
           })
         );
