@@ -10,6 +10,8 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import * as XLSX from 'xlsx';
 
@@ -28,6 +30,8 @@ export const VIRTUAL_SCROLL_ITEM_SIZE = 48; // Height of each row in pixels
     MatIconModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
+    MatChipsModule,
+    MatTooltipModule,
     ScrollingModule
   ],
   template: `
@@ -104,7 +108,15 @@ export const VIRTUAL_SCROLL_ITEM_SIZE = 48; // Height of each row in pixels
                   <thead>
                     <tr>
                       <th *ngFor="let field of report.selectedFields" [style.min-width]="'150px'">
-                        {{ field.displayName }}
+                        <div class="column-header">
+                          <span class="column-name">{{ field.displayName }}</span>
+                          <mat-chip *ngIf="field.aggregation" 
+                                    class="aggregation-badge"
+                                    [matTooltip]="getAggregationTooltip(field.aggregation)">
+                            <mat-icon class="badge-icon">{{ getAggregationIcon(field.aggregation) }}</mat-icon>
+                            {{ getAggregationLabel(field.aggregation) }}
+                          </mat-chip>
+                        </div>
                         <span class="field-type">({{ getFieldTypeDisplay(field.dataType) }})</span>
                       </th>
                     </tr>
@@ -114,8 +126,7 @@ export const VIRTUAL_SCROLL_ITEM_SIZE = 48; // Height of each row in pixels
               
               <cdk-virtual-scroll-viewport 
                 [itemSize]="virtualScrollItemSize" 
-                class="virtual-scroll-viewport"
-                [style.height.px]="600">
+                class="virtual-scroll-viewport">
                 <table class="preview-table">
                   <tbody>
                     <tr *cdkVirtualFor="let row of previewData.data; let i = index" 
@@ -136,7 +147,15 @@ export const VIRTUAL_SCROLL_ITEM_SIZE = 48; // Height of each row in pixels
                   <thead>
                     <tr>
                       <th *ngFor="let field of report.selectedFields">
-                        {{ field.displayName }}
+                        <div class="column-header">
+                          <span class="column-name">{{ field.displayName }}</span>
+                          <mat-chip *ngIf="field.aggregation" 
+                                    class="aggregation-badge"
+                                    [matTooltip]="getAggregationTooltip(field.aggregation)">
+                            <mat-icon class="badge-icon">{{ getAggregationIcon(field.aggregation) }}</mat-icon>
+                            {{ getAggregationLabel(field.aggregation) }}
+                          </mat-chip>
+                        </div>
                         <span class="field-type">({{ getFieldTypeDisplay(field.dataType) }})</span>
                       </th>
                     </tr>
@@ -435,5 +454,50 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
       default:
         return String(value);
     }
+  }
+
+  /**
+   * Get aggregation label for display
+   */
+  getAggregationLabel(aggregation?: string): string {
+    if (!aggregation) return '';
+    const labels: { [key: string]: string } = {
+      'sum': 'SUM',
+      'avg': 'AVG',
+      'count': 'COUNT',
+      'min': 'MIN',
+      'max': 'MAX'
+    };
+    return labels[aggregation.toLowerCase()] || aggregation.toUpperCase();
+  }
+
+  /**
+   * Get aggregation icon for display
+   */
+  getAggregationIcon(aggregation?: string): string {
+    if (!aggregation) return 'functions';
+    const icons: { [key: string]: string } = {
+      'sum': 'add_circle',
+      'avg': 'trending_flat',
+      'count': 'numbers',
+      'min': 'arrow_downward',
+      'max': 'arrow_upward'
+    };
+    return icons[aggregation.toLowerCase()] || 'functions';
+  }
+
+  /**
+   * Get aggregation tooltip text
+   */
+  getAggregationTooltip(aggregation?: string): string {
+    if (!aggregation) return '';
+    const tooltips: { [key: string]: string } = {
+      'sum': 'Sum of all values',
+      'avg': 'Average of all values',
+      'count': 'Count of records',
+      'min': 'Minimum value',
+      'max': 'Maximum value'
+    };
+    return tooltips[aggregation.toLowerCase()] || 'Aggregated value';
   }
 }
