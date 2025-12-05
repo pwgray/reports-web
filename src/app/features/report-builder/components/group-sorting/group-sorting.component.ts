@@ -399,14 +399,45 @@ export class GroupSortingComponent implements OnInit, OnChanges {
     }
 
     ngOnInit(): void {
+        console.log('🔷 GroupSortingComponent ngOnInit');
+        console.log('  📊 availableFields:', this.availableFields.length, this.availableFields);
+        console.log('  📦 groupBy:', this.groupBy.length, this.groupBy);
+        console.log('  🔀 sorting:', this.sorting.length, this.sorting);
         this.syncFieldReferences();
     }
 
     ngOnChanges(changes: SimpleChanges): void {
+        console.log('🔷 GroupSortingComponent ngOnChanges', changes);
+        
+        if (changes['availableFields']) {
+            console.log('  📊 availableFields changed:', {
+                previousValue: changes['availableFields'].previousValue?.length,
+                currentValue: changes['availableFields'].currentValue?.length,
+                isFirstChange: changes['availableFields'].firstChange
+            });
+        }
+        
+        if (changes['groupBy']) {
+            console.log('  📦 groupBy changed:', {
+                previousValue: changes['groupBy'].previousValue,
+                currentValue: changes['groupBy'].currentValue,
+                isFirstChange: changes['groupBy'].firstChange
+            });
+        }
+        
+        if (changes['sorting']) {
+            console.log('  🔀 sorting changed:', {
+                previousValue: changes['sorting'].previousValue,
+                currentValue: changes['sorting'].currentValue,
+                isFirstChange: changes['sorting'].firstChange
+            });
+        }
+        
         // Sync whenever availableFields, groupBy, or sorting changes
         if ((changes['availableFields'] && this.availableFields.length > 0) ||
             (changes['groupBy'] && this.groupBy.length > 0) ||
             (changes['sorting'] && this.sorting.length > 0)) {
+            console.log('  ⏱️ Scheduling syncFieldReferences...');
             // Use setTimeout to ensure all inputs are set
             setTimeout(() => this.syncFieldReferences(), 0);
         }
@@ -416,16 +447,32 @@ export class GroupSortingComponent implements OnInit, OnChanges {
      * Sync groupBy and sorting field data with availableFields to ensure they display correctly
      */
     private syncFieldReferences(): void {
-        if (!this.availableFields.length) return;
+        console.log('🔄 syncFieldReferences called');
+        console.log('  📊 availableFields.length:', this.availableFields.length);
+        console.log('  📦 groupBy.length:', this.groupBy.length);
+        console.log('  🔀 sorting.length:', this.sorting.length);
+        
+        if (!this.availableFields.length) {
+            console.log('  ⚠️ No availableFields, skipping sync');
+            return;
+        }
 
         // Sync groupBy fields
         if (this.groupBy.length > 0) {
-            const updatedGroupBy = this.groupBy.map(group => {
+            console.log('  📦 Syncing groupBy fields...');
+            console.log('    Before:', JSON.stringify(this.groupBy, null, 2));
+            
+            const updatedGroupBy = this.groupBy.map((group, index) => {
+                console.log(`    🔍 Processing group[${index}]:`, group);
+                
                 // If displayName is already set and valid, keep it
                 if (group.displayName) {
+                    console.log(`      ✅ displayName already set: "${group.displayName}"`);
                     return group;
                 }
 
+                console.log(`      ⚠️ No displayName, searching for match...`);
+                
                 // Otherwise, try to find the matching field
                 const matchingField = this.availableFields.find(f => 
                     f.id === group.id || 
@@ -433,6 +480,7 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                 );
 
                 if (matchingField) {
+                    console.log(`      ✅ Found matching field:`, matchingField);
                     // Update with current field data from availableFields
                     return {
                         ...group,
@@ -443,6 +491,7 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                     };
                 }
                 
+                console.log(`      ⚠️ No matching field found, using fieldName as fallback`);
                 // If no match found, use fieldName as displayName
                 return {
                     ...group,
@@ -450,20 +499,33 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                 };
             });
 
+            console.log('    After:', JSON.stringify(updatedGroupBy, null, 2));
+
             // Only update if something changed
             if (JSON.stringify(updatedGroupBy) !== JSON.stringify(this.groupBy)) {
+                console.log('    ✅ Updating groupBy array');
                 this.groupBy = updatedGroupBy;
+            } else {
+                console.log('    ℹ️ No changes needed');
             }
         }
 
         // Sync sorting fields
         if (this.sorting.length > 0) {
-            const updatedSorting = this.sorting.map(sort => {
+            console.log('  🔀 Syncing sorting fields...');
+            console.log('    Before:', JSON.stringify(this.sorting, null, 2));
+            
+            const updatedSorting = this.sorting.map((sort, index) => {
+                console.log(`    🔍 Processing sort[${index}]:`, sort);
+                
                 // If displayName is already set and valid, keep it
                 if (sort.displayName) {
+                    console.log(`      ✅ displayName already set: "${sort.displayName}"`);
                     return sort;
                 }
 
+                console.log(`      ⚠️ No displayName, searching for match...`);
+                
                 // Otherwise, try to find the matching field
                 const matchingField = this.availableFields.find(f => 
                     f.id === sort.id || 
@@ -471,6 +533,7 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                 );
 
                 if (matchingField) {
+                    console.log(`      ✅ Found matching field:`, matchingField);
                     // Update with current field data from availableFields
                     return {
                         ...sort,
@@ -481,6 +544,7 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                     };
                 }
                 
+                console.log(`      ⚠️ No matching field found, using fieldName as fallback`);
                 // If no match found, use fieldName as displayName
                 return {
                     ...sort,
@@ -488,18 +552,30 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                 };
             });
 
+            console.log('    After:', JSON.stringify(updatedSorting, null, 2));
+
             // Only update if something changed
             if (JSON.stringify(updatedSorting) !== JSON.stringify(this.sorting)) {
+                console.log('    ✅ Updating sorting array');
                 this.sorting = updatedSorting;
+            } else {
+                console.log('    ℹ️ No changes needed');
             }
         }
+        
+        console.log('🔄 syncFieldReferences complete');
     }
 
     // Grouping Methods
     addGroupBy(): void {
+        console.log('➕ addGroupBy called');
+        console.log('  selectedGroupFieldId:', this.selectedGroupFieldId);
+        
         if (!this.selectedGroupFieldId) return;
 
         const selectedField = this.availableFields.find(f => f.id === this.selectedGroupFieldId);
+        console.log('  selectedField:', selectedField);
+        
         if (selectedField && !this.isFieldGrouped(selectedField)) {
             const newGroup: GroupByField = {
                 id: selectedField.id,
@@ -507,9 +583,13 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                 fieldName: selectedField.fieldName,
                 displayName: selectedField.displayName
             };
+            console.log('  Creating new group:', newGroup);
             this.groupBy = [...this.groupBy, newGroup];
+            console.log('  Updated groupBy array:', this.groupBy);
             this.selectedGroupFieldId = '';
             this.emitGroupingChanges();
+        } else {
+            console.log('  ⚠️ Field not added (already grouped or not found)');
         }
     }
 
@@ -536,9 +616,15 @@ export class GroupSortingComponent implements OnInit, OnChanges {
 
     // Sorting Methods
     addSort(): void {
+        console.log('➕ addSort called');
+        console.log('  selectedSortFieldId:', this.selectedSortFieldId);
+        console.log('  selectedSortDirection:', this.selectedSortDirection);
+        
         if (!this.selectedSortFieldId) return;
 
         const selectedField = this.availableFields.find(f => f.id === this.selectedSortFieldId);
+        console.log('  selectedField:', selectedField);
+        
         if (selectedField) {
             const newSort: SortField = {
                 id: selectedField.id,
@@ -547,9 +633,13 @@ export class GroupSortingComponent implements OnInit, OnChanges {
                 displayName: selectedField.displayName,
                 direction: this.selectedSortDirection
             };
+            console.log('  Creating new sort:', newSort);
             this.sorting = [...this.sorting, newSort];
+            console.log('  Updated sorting array:', this.sorting);
             this.selectedSortFieldId = '';
             this.emitSortingChanges();
+        } else {
+            console.log('  ⚠️ Field not found');
         }
     }
 
