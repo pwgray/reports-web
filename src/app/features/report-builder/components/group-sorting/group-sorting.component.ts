@@ -1,6 +1,6 @@
 import { CdkDragDrop, DragDropModule, moveItemInArray } from "@angular/cdk/drag-drop";
 import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Input, Output, OnInit } from "@angular/core";
+import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatIconModule } from "@angular/material/icon";
 import { MatButtonModule } from "@angular/material/button";
@@ -373,7 +373,7 @@ import { GroupByField, SelectedField, SortField, FieldDataType } from "../../../
     ])
   ]
 })
-export class GroupSortingComponent implements OnInit {
+export class GroupSortingComponent implements OnInit, OnChanges {
     @Input() availableFields: SelectedField[] = [];
     @Input() groupBy: GroupByField[] = [];
     @Input() sorting: SortField[] = [];
@@ -399,7 +399,100 @@ export class GroupSortingComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        // Initialize component
+        this.syncFieldReferences();
+    }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        // Sync whenever availableFields, groupBy, or sorting changes
+        if ((changes['availableFields'] && this.availableFields.length > 0) ||
+            (changes['groupBy'] && this.groupBy.length > 0) ||
+            (changes['sorting'] && this.sorting.length > 0)) {
+            // Use setTimeout to ensure all inputs are set
+            setTimeout(() => this.syncFieldReferences(), 0);
+        }
+    }
+
+    /**
+     * Sync groupBy and sorting field data with availableFields to ensure they display correctly
+     */
+    private syncFieldReferences(): void {
+        if (!this.availableFields.length) return;
+
+        // Sync groupBy fields
+        if (this.groupBy.length > 0) {
+            const updatedGroupBy = this.groupBy.map(group => {
+                // If displayName is already set and valid, keep it
+                if (group.displayName) {
+                    return group;
+                }
+
+                // Otherwise, try to find the matching field
+                const matchingField = this.availableFields.find(f => 
+                    f.id === group.id || 
+                    (f.tableName === group.tableName && f.fieldName === group.fieldName)
+                );
+
+                if (matchingField) {
+                    // Update with current field data from availableFields
+                    return {
+                        ...group,
+                        id: matchingField.id,
+                        tableName: matchingField.tableName,
+                        fieldName: matchingField.fieldName,
+                        displayName: matchingField.displayName
+                    };
+                }
+                
+                // If no match found, use fieldName as displayName
+                return {
+                    ...group,
+                    displayName: group.displayName || group.fieldName
+                };
+            });
+
+            // Only update if something changed
+            if (JSON.stringify(updatedGroupBy) !== JSON.stringify(this.groupBy)) {
+                this.groupBy = updatedGroupBy;
+            }
+        }
+
+        // Sync sorting fields
+        if (this.sorting.length > 0) {
+            const updatedSorting = this.sorting.map(sort => {
+                // If displayName is already set and valid, keep it
+                if (sort.displayName) {
+                    return sort;
+                }
+
+                // Otherwise, try to find the matching field
+                const matchingField = this.availableFields.find(f => 
+                    f.id === sort.id || 
+                    (f.tableName === sort.tableName && f.fieldName === sort.fieldName)
+                );
+
+                if (matchingField) {
+                    // Update with current field data from availableFields
+                    return {
+                        ...sort,
+                        id: matchingField.id,
+                        tableName: matchingField.tableName,
+                        fieldName: matchingField.fieldName,
+                        displayName: matchingField.displayName
+                    };
+                }
+                
+                // If no match found, use fieldName as displayName
+                return {
+                    ...sort,
+                    displayName: sort.displayName || sort.fieldName
+                };
+            });
+
+            // Only update if something changed
+            if (JSON.stringify(updatedSorting) !== JSON.stringify(this.sorting)) {
+                this.sorting = updatedSorting;
+            }
+        }
     }
 
     // Grouping Methods

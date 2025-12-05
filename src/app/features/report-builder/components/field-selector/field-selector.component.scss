@@ -502,6 +502,47 @@ div {
   padding: var(--spacing-lg) var(--spacing-xl);
   overflow: hidden;
   border: 1px solid #000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+// Aggregation info banner
+.aggregation-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 1px solid #3b82f6;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+
+  .info-icon {
+    font-size: 1.25rem;
+    color: #3b82f6;
+    margin-top: 0.125rem;
+    flex-shrink: 0;
+  }
+
+  .info-content {
+    flex: 1;
+    
+    strong {
+      display: block;
+      color: #1e40af;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    p {
+      margin: 0;
+      color: #1e40af;
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+  }
 }
 
 // Selected fields container
@@ -512,22 +553,31 @@ div {
   padding-bottom: var(--spacing-md);
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-width: thin; // For Firefox
+  scrollbar-color: var(--border-color) var(--bg-tertiary); // For Firefox
 
+  // Webkit browsers (Chrome, Safari, Edge)
   &::-webkit-scrollbar {
-    height: 8px;
+    height: 12px;
   }
 
   &::-webkit-scrollbar-track {
     background: var(--bg-tertiary);
     border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--border-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
     border-radius: var(--radius-sm);
+    border: 2px solid var(--bg-tertiary);
 
     &:hover {
-      background: var(--border-hover);
+      background: linear-gradient(135deg, var(--primary-hover), var(--primary-color));
+    }
+
+    &:active {
+      background: var(--primary-hover);
     }
   }
 
@@ -667,6 +717,14 @@ div {
             .option-icon {
               font-size: 0.625rem;
             }
+
+            .aggregation-hint {
+              font-size: 0.7rem;
+              color: #3b82f6;
+              font-weight: 600;
+              font-style: italic;
+              margin-left: 0.25rem;
+            }
           }
 
           .aggregation-select {
@@ -681,6 +739,12 @@ div {
               outline: none;
               border-color: var(--primary-color);
               box-shadow: 0 0 0 2px rgb(37 99 235 / 0.1);
+            }
+
+            &.group-by-field {
+              border-color: #3b82f6;
+              background: linear-gradient(135deg, #eff6ff, #ffffff);
+              font-weight: 500;
             }
           }
         }

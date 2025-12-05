@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit } from "@angular/core";
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from "@angular/core";
 import { SelectedField, FilterCondition, FilterOperator, FieldDataType } from "../../../../core/models/report.models";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -110,22 +110,39 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
                   <label class="field-label">Value</label>
                   
                   <!-- Text input -->
-                  <input 
-                    *ngIf="getValueInputType(filter) === 'text'"
-                    type="text"
-                    [(ngModel)]="filter.value"
-                    (ngModelChange)="onFilterChanged()"
-                    [placeholder]="getValuePlaceholder(filter)"
-                    class="filter-input">
+                  <div *ngIf="getValueInputType(filter) === 'text'" class="input-wrapper">
+                    <input 
+                      type="text"
+                      [(ngModel)]="filter.value"
+                      (ngModelChange)="onFilterChanged()"
+                      [placeholder]="getValuePlaceholder(filter)"
+                      [class.invalid-value]="!isValueValidForType(filter)"
+                      class="filter-input">
+                    <div class="input-hint" *ngIf="getInputHint(filter)">
+                      <mat-icon class="hint-icon">info</mat-icon>
+                      <span>{{ getInputHint(filter) }}</span>
+                    </div>
+                  </div>
 
                   <!-- Number input -->
-                  <input 
-                    *ngIf="getValueInputType(filter) === 'number'"
-                    type="number"
-                    [(ngModel)]="filter.value"
-                    (ngModelChange)="onFilterChanged()"
-                    [placeholder]="getValuePlaceholder(filter)"
-                    class="filter-input">
+                  <div *ngIf="getValueInputType(filter) === 'number'" class="input-wrapper">
+                    <input 
+                      type="number"
+                      [(ngModel)]="filter.value"
+                      (ngModelChange)="onFilterChanged()"
+                      [placeholder]="getValuePlaceholder(filter)"
+                      [class.invalid-value]="!isValueValidForType(filter)"
+                      class="filter-input"
+                      step="any">
+                    <div class="input-hint" *ngIf="getInputHint(filter)">
+                      <mat-icon class="hint-icon">info</mat-icon>
+                      <span>{{ getInputHint(filter) }}</span>
+                    </div>
+                    <div class="type-error" *ngIf="filter.value && !isValueValidForType(filter)">
+                      <mat-icon class="error-icon">error</mat-icon>
+                      <span>Please enter a valid number</span>
+                    </div>
+                  </div>
 
                   <!-- Date input -->
                   <input 
@@ -210,15 +227,18 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
               </div>
 
               <!-- Filter Preview/Summary -->
-              <div class="filter-preview" *ngIf="filter.displayText">
-                <mat-icon class="preview-icon">info</mat-icon>
-                <span>{{ filter.displayText }}</span>
+              <div class="filter-preview" *ngIf="isFilterValid(filter) && filter.displayText">
+                <mat-icon class="preview-icon">check_circle</mat-icon>
+                <div class="preview-content">
+                  <span class="preview-label">Filter:</span>
+                  <span class="preview-text">{{ filter.displayText }}</span>
+                </div>
               </div>
 
               <!-- Validation Message -->
               <div class="filter-validation" *ngIf="!isFilterValid(filter) && filter.field">
                 <mat-icon class="warning-icon">warning</mat-icon>
-                <span>Please complete all required fields</span>
+                <span>{{ getValidationMessage(filter) }}</span>
               </div>
             </div>
           </div>
@@ -280,7 +300,7 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
         ])
     ]
 })
-export class FilterBuilderComponent implements OnInit {
+export class FilterBuilderComponent implements OnInit, OnChanges {
     @Input() availableFields: SelectedField[] = [];
     @Input() filters: FilterCondition[] = [];
     @Output() filtersChanged = new EventEmitter<FilterCondition[]>();
@@ -288,10 +308,40 @@ export class FilterBuilderComponent implements OnInit {
     filterLogic: 'AND' | 'OR' = 'AND';
 
     ngOnInit(): void {
+        this.syncFieldReferences();
         // Initialize any filters that don't have display text
         this.filters.forEach(filter => {
             if (!filter.displayText) {
                 this.updateFilterDisplayText(filter);
+            }
+        });
+    }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        // When availableFields changes, sync the field references in existing filters
+        if (changes['availableFields'] && this.availableFields.length > 0) {
+            this.syncFieldReferences();
+        }
+    }
+
+    /**
+     * Sync filter field references with availableFields to ensure dropdown selection works
+     */
+    private syncFieldReferences(): void {
+        if (!this.availableFields.length || !this.filters.length) return;
+
+        this.filters.forEach(filter => {
+            if (filter.field) {
+                // Find the matching field in availableFields by id, tableName, and fieldName
+                const matchingField = this.availableFields.find(f => 
+                    f.id === filter.field.id || 
+                    (f.tableName === filter.field.tableName && f.fieldName === filter.field.fieldName)
+                );
+
+                // Replace with the reference from availableFields if found
+                if (matchingField) {
+                    filter.field = matchingField;
+                }
             }
         });
     }
@@ -504,7 +554,86 @@ export class FilterBuilderComponent implements OnInit {
             return false;
         }
 
-        return filter.value != null && filter.value !== '';
+        const hasValue = filter.value != null && filter.value !== '';
+        const isValidType = this.isValueValidForType(filter);
+        
+        return hasValue && isValidType;
+    }
+
+    /**
+     * Validate that the entered value matches the field's data type
+     */
+    isValueValidForType(filter: FilterCondition): boolean {
+        if (!filter.field || !filter.value) return true; // Don't validate empty values
+
+        const dataType = filter.field.dataType.toString().toLowerCase();
+        const value = filter.value;
+
+        // For number types, ensure the value is actually a number
+        if (dataType === 'number' || dataType === 'currency' || 
+            dataType === 'float' || dataType === 'double' || 
+            dataType === 'decimal' || dataType === 'numeric' ||
+            dataType === 'smallint' || dataType === 'bigint' || 
+            dataType === 'money' || dataType === 'integer') {
+            
+            if (filter.operator === FilterOperator.BETWEEN) {
+                const startValid = !isNaN(Number(value.start));
+                const endValid = !isNaN(Number(value.end));
+                return startValid && endValid;
+            }
+            
+            if (filter.operator === FilterOperator.IN_LIST) {
+                if (Array.isArray(value)) {
+                    return value.every(v => !isNaN(Number(v)));
+                }
+                if (typeof value === 'string') {
+                    const values = value.split(',').map(v => v.trim());
+                    return values.every(v => !isNaN(Number(v)));
+                }
+            }
+            
+            // Check if value is a valid number
+            return !isNaN(Number(value));
+        }
+
+        // For date types, ensure it's a valid date
+        if (dataType === 'date' || dataType === 'datetime') {
+            if (filter.operator === FilterOperator.BETWEEN) {
+                const startValid = !isNaN(new Date(value.start).getTime());
+                const endValid = !isNaN(new Date(value.end).getTime());
+                return startValid && endValid;
+            }
+            return !isNaN(new Date(value).getTime());
+        }
+
+        return true; // String and other types are always valid
+    }
+
+    /**
+     * Get helpful hint text for the input based on field type
+     */
+    getInputHint(filter: FilterCondition): string {
+        if (!filter.field) return '';
+
+        const dataType = filter.field.dataType.toString().toLowerCase();
+        
+        if (dataType === 'number' || dataType === 'currency' || 
+            dataType === 'float' || dataType === 'double' || 
+            dataType === 'decimal' || dataType === 'numeric' ||
+            dataType === 'smallint' || dataType === 'bigint' || 
+            dataType === 'money' || dataType === 'integer') {
+            
+            if (filter.operator === FilterOperator.IN_LIST) {
+                return 'Enter numbers separated by commas (e.g., 10, 20, 30)';
+            }
+            return 'Enter numeric values only';
+        }
+
+        if (dataType === 'date' || dataType === 'datetime') {
+            return 'Select or enter a valid date';
+        }
+
+        return '';
     }
 
     private updateFilterDisplayText(filter: FilterCondition): void {
@@ -605,6 +734,46 @@ export class FilterBuilderComponent implements OnInit {
         const date = new Date(dateValue);
         if (isNaN(date.getTime())) return String(dateValue);
         return date.toLocaleDateString();
+    }
+
+    /**
+     * Get specific validation message based on what's wrong with the filter
+     */
+    getValidationMessage(filter: FilterCondition): string {
+        if (!filter.field) return 'Select a field';
+        if (!filter.operator) return 'Select a condition';
+        
+        if (!filter.value && this.needsValueInput(filter.operator)) {
+            return 'Enter a value';
+        }
+
+        if (filter.value && !this.isValueValidForType(filter)) {
+            const dataType = filter.field.dataType.toString().toLowerCase();
+            if (dataType.includes('number') || dataType.includes('int') || 
+                dataType === 'currency' || dataType === 'decimal' || 
+                dataType === 'float' || dataType === 'double' || dataType === 'money') {
+                return 'Please enter a valid number (letters are not allowed)';
+            }
+            if (dataType === 'date' || dataType === 'datetime') {
+                return 'Please enter a valid date';
+            }
+        }
+
+        if (filter.operator === FilterOperator.BETWEEN) {
+            if (!filter.value?.start) return 'Enter start value';
+            if (!filter.value?.end) return 'Enter end value';
+        }
+
+        if (filter.operator === FilterOperator.IN_LIST) {
+            if (Array.isArray(filter.value) && filter.value.length === 0) {
+                return 'Select at least one value';
+            }
+            if (typeof filter.value === 'string' && filter.value.trim().length === 0) {
+                return 'Enter at least one value';
+            }
+        }
+
+        return 'Please complete all required fields';
     }
 
     private generateId(): string {

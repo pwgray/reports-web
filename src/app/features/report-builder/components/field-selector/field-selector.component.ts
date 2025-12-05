@@ -310,6 +310,15 @@ interface HierarchyNode {
         <!-- Main Content: Selected Fields -->
         <div class="field-selector-main">
           <div class="main-content">
+            <!-- Aggregation Guidance Banner -->
+            <div class="aggregation-info-banner" *ngIf="hasAggregatedFields()">
+              <fa-icon [icon]="faChartBar" class="info-icon"></fa-icon>
+              <div class="info-content">
+                <strong>Aggregation Mode Active</strong>
+                <p>Fields without aggregation will automatically be grouped. To see individual rows, remove aggregations from all fields.</p>
+              </div>
+            </div>
+
             <div class="selected-fields-container" 
                  cdkDropList
                  id="selected-fields-drop-list"
@@ -352,22 +361,24 @@ interface HierarchyNode {
                     </div>
                     
                     <div class="field-options">
-                      <!-- Aggregation for numeric fields -->
-                      <div class="option-group" *ngIf="isNumericField(field)">
+                      <!-- Aggregation options for all fields -->
+                      <div class="option-group">
                         <label class="option-label">
-                          <fa-icon [icon]="faSort" class="option-icon"></fa-icon>
+                          <fa-icon [icon]="faChartBar" class="option-icon"></fa-icon>
                           Aggregation
+                          <span class="aggregation-hint" *ngIf="hasAggregatedFields() && !field.aggregation" 
+                                title="This field will be used for grouping since other fields are aggregated">
+                            (grouped)
+                          </span>
                         </label>
                         <select 
                           [(ngModel)]="field.aggregation"
                           (change)="onFieldChanged(field)"
-                          class="aggregation-select">
-                          <option value="">Show individual values</option>
-                          <option value="sum">Sum</option>
-                          <option value="avg">Average</option>
-                          <option value="count">Count</option>
-                          <option value="min">Minimum</option>
-                          <option value="max">Maximum</option>
+                          class="aggregation-select"
+                          [class.group-by-field]="hasAggregatedFields() && !field.aggregation">
+                          <option *ngFor="let option of getAggregationOptions(field)" [value]="option.value">
+                            {{ option.label }}
+                          </option>
                         </select>
                       </div>
                       
@@ -529,13 +540,58 @@ export class FieldSelectorComponent implements OnInit {
   
   isNumericField(_t42: SelectedField): any {
     return _t42.dataType === 'number' || _t42.dataType === 'currency';
-
   }
 
   onFieldChanged(_t42: SelectedField) {
     console.log(_t42);
     this.selectedFields = this.selectedFields.map(field => field.id === _t42.id ? _t42 : field);
     this.fieldsChanged.emit(this.selectedFields);
+  }
+
+  /**
+   * Check if any selected fields have aggregations
+   */
+  hasAggregatedFields(): boolean {
+    return this.selectedFields.some(field => !!field.aggregation);
+  }
+
+  /**
+   * Check if there are mixed aggregated and non-aggregated fields
+   */
+  hasMixedAggregations(): boolean {
+    const hasAggregated = this.selectedFields.some(field => !!field.aggregation);
+    const hasNonAggregated = this.selectedFields.some(field => !field.aggregation);
+    return hasAggregated && hasNonAggregated;
+  }
+
+  /**
+   * Get aggregation options for a field based on its data type
+   */
+  getAggregationOptions(field: SelectedField): Array<{value: string | undefined, label: string}> {
+    const options: Array<{value: string | undefined, label: string}> = [
+      { value: undefined, label: 'No aggregation (will group by this field)' }
+    ];
+
+    // COUNT is available for all types
+    options.push({ value: 'count', label: 'Count' });
+
+    // Numeric aggregations
+    if (this.isNumericField(field)) {
+      options.push(
+        { value: 'sum', label: 'Sum' },
+        { value: 'avg', label: 'Average' },
+        { value: 'min', label: 'Minimum' },
+        { value: 'max', label: 'Maximum' }
+      );
+    } else {
+      // Non-numeric fields can still use MIN/MAX for sorting purposes
+      options.push(
+        { value: 'min', label: 'Minimum' },
+        { value: 'max', label: 'Maximum' }
+      );
+    }
+
+    return options;
   }
 
   openFormatDialog(field: SelectedField) {
@@ -594,6 +650,12 @@ export class FieldSelectorComponent implements OnInit {
   addField(field: any): void {
     if (this.isFieldSelected(field)) return;
 
+    // Validate field has required properties
+    if (!field.tableName || !field.name) {
+      console.error('Cannot add field: missing required properties', field);
+      return;
+    }
+
     const selectedField: SelectedField = {
       id: `${field.tableName}.${field.name}`,
       tableName: field.tableName,
@@ -601,8 +663,14 @@ export class FieldSelectorComponent implements OnInit {
       displayName: field.displayName || field.name,
       dataType: field.normalizedType || field.dataType,
       aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
-      schema: field.schema // Include schema information
+      schema: field.schema || undefined // Ensure undefined instead of string "undefined"
     };
+
+    // Final validation before adding
+    if (!selectedField.tableName || !selectedField.fieldName) {
+      console.error('Cannot add field: validation failed', selectedField);
+      return;
+    }
 
     this.selectedFields = [...this.selectedFields, selectedField];
     this.fieldsChanged.emit(this.selectedFields);
@@ -807,16 +875,18 @@ export class FieldSelectorComponent implements OnInit {
     // Get all fields from the table that aren't already selected
     const fieldsToAdd = table.fields.filter((field: any) => !this.isFieldSelected(field));
     
-    // Convert to SelectedField objects
-    const newSelectedFields = fieldsToAdd.map((field: any) => ({
-      id: `${field.tableName}.${field.name}`,
-      tableName: field.tableName,
-      fieldName: field.name,
-      displayName: field.displayName || field.name,
-      dataType: field.normalizedType || field.dataType,
-      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
-      schema: field.schema // Include schema information
-    }));
+    // Convert to SelectedField objects with validation
+    const newSelectedFields = fieldsToAdd
+      .filter((field: any) => field.tableName && field.name) // Filter out invalid fields
+      .map((field: any) => ({
+        id: `${field.tableName}.${field.name}`,
+        tableName: field.tableName,
+        fieldName: field.name,
+        displayName: field.displayName || field.name,
+        dataType: field.normalizedType || field.dataType,
+        aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
+        schema: field.schema || undefined // Ensure undefined instead of string "undefined"
+      }));
     
     // Add all new fields
     this.selectedFields = [...this.selectedFields, ...newSelectedFields];
@@ -827,16 +897,18 @@ export class FieldSelectorComponent implements OnInit {
     // Get all fields from the node's table that aren't already selected
     const fieldsToAdd = node.table.columns.filter((field: any) => !this.isFieldSelected(field));
     
-    // Convert to SelectedField objects
-    const newSelectedFields = fieldsToAdd.map((field: any) => ({
-      id: `${field.tableName}.${field.name}`,
-      tableName: field.tableName,
-      fieldName: field.name,
-      displayName: field.displayName || field.name,
-      dataType: field.normalizedType || field.dataType,
-      aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
-      schema: field.schema // Include schema information
-    }));
+    // Convert to SelectedField objects with validation
+    const newSelectedFields = fieldsToAdd
+      .filter((field: any) => field.tableName && field.name) // Filter out invalid fields
+      .map((field: any) => ({
+        id: `${field.tableName}.${field.name}`,
+        tableName: field.tableName,
+        fieldName: field.name,
+        displayName: field.displayName || field.name,
+        dataType: field.normalizedType || field.dataType,
+        aggregation: this.getDefaultAggregation(field.normalizedType || field.dataType) as AggregationType | undefined,
+        schema: field.schema || undefined // Ensure undefined instead of string "undefined"
+      }));
     
     // Add all new fields
     this.selectedFields = [...this.selectedFields, ...newSelectedFields];
@@ -867,6 +939,16 @@ export class FieldSelectorComponent implements OnInit {
     dialogRef.afterClosed().subscribe((result?: RelatedFieldDialogResult) => {
       if (!result) return;
 
+      // Validate required fields
+      if (!sourceTableName || !result.displayName) {
+        console.error('Cannot add related field: missing required properties', { sourceTableName, result });
+        return;
+      }
+
+      // Get schema from the source table
+      const sourceTable = this.schema?.tables.find(t => t.name === sourceTableName);
+      const schema = sourceTable?.schema;
+
       // Create a new selected field with the related table configuration
       const relatedField: SelectedField = {
         id: `related_${Date.now()}_${result.config.relationshipId}`,
@@ -874,7 +956,8 @@ export class FieldSelectorComponent implements OnInit {
         fieldName: `related_${result.config.relatedTableName}`,
         displayName: result.displayName,
         dataType: result.dataType,
-        relatedTable: result.config
+        relatedTable: result.config,
+        schema: schema || undefined // Ensure undefined instead of string "undefined"
       };
 
       this.selectedFields = [...this.selectedFields, relatedField];
