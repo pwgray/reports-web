@@ -44,11 +44,7 @@ import { MatSnackBar, MatSnackBarModule } from "@angular/material/snack-bar";
           <button class="btn btn-secondary" (click)="editReport()">
             <fa-icon [icon]="faEdit"></fa-icon>
             Edit Report
-          </button>
-          <button class="btn btn-primary" (click)="exportReport()">
-            <fa-icon [icon]="faDownload"></fa-icon>
-            Export
-          </button>
+          </button>         
         </div>
       </div>
 
