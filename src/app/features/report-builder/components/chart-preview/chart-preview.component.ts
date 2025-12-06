@@ -2,6 +2,11 @@ import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FilterCondition, GroupByField, LayoutConfiguration, ReportDefinition, SortField, SelectedField, FieldDataType } from "../../../../core/models/report.models";
 
+/**
+ * Component for previewing chart visualizations of report data.
+ * Supports bar charts and line charts based on selected fields and data.
+ * Automatically determines X and Y axes from numeric and category fields.
+ */
 @Component({
   selector: 'app-chart-preview',
   standalone: true,
@@ -84,37 +89,84 @@ import { FilterCondition, GroupByField, LayoutConfiguration, ReportDefinition, S
   styleUrls: ['./chart-preview.component.scss']
 })
 export class ChartPreviewComponent implements OnChanges {
+  /** Array of data rows to display in the chart */
   @Input() data: any[] = [];
+  
+  /** Selected fields from the report definition */
   @Input() fields: SelectedField[] = [];
+  
+  /** Group by fields configuration */
   @Input() groupBy: GroupByField[] = [];
+  
+  /** Sort fields configuration */
   @Input() sortBy: SortField[] = [];
+  
+  /** Filter conditions applied to the data */
   @Input() filters: FilterCondition[] = [];
+  
+  /** Layout configuration for the chart */
   @Input() layout: LayoutConfiguration = {} as LayoutConfiguration;
+  
+  /** Format type (currently unused, kept for compatibility) */
   @Input() format: string = 'table';
+  
+  /** Whether data is currently loading */
   @Input() isLoading: boolean = false;
+  
+  /** Complete report definition */
   @Input() report: ReportDefinition = {} as ReportDefinition;
+  
+  /** Type of chart to render: 'bar', 'line', or 'table' */
   @Input() chartType: 'bar' | 'line' | 'table' = 'bar';
 
-  // Derived fields
+  /** Derived fields */
+  /** Field to use for the X-axis (category/date field) */
   xField: SelectedField | null = null;
+  
+  /** Field to use for the Y-axis (numeric field) */
   yField: SelectedField | null = null;
 
-  // Precomputed geometry
+  /** Precomputed geometry */
+  /** Array of bar rectangle coordinates and data for bar charts */
   barRects: Array<{ x: number; y: number; width: number; height: number; label: string; value: number }> = [];
+  
+  /** Array of X-axis tick positions and labels */
   xTicks: Array<{ x: number; label: string }> = [];
+  
+  /** Array of Y-axis tick positions and labels */
   yTicks: Array<{ y: number; label: string }> = [];
+  
+  /** SVG path points string for line charts */
   linePoints = '';
+  
+  /** Array of point coordinates for line charts */
   linePointArray: Array<{ x: number; y: number; label: string; value: number }> = [];
 
+  /**
+   * Determines if the component has valid data to render a chart.
+   * Requires both X and Y fields, non-empty data array, and chart type that's not 'table'.
+   * @returns True if chart can be rendered, false otherwise
+   */
   get hasChartableData(): boolean {
     return !!this.xField && !!this.yField && Array.isArray(this.data) && this.data.length > 0 && this.chartType !== 'table';
   }
 
+  /**
+   * Angular lifecycle hook called when input properties change.
+   * Recomputes field assignments and chart geometry.
+   * @param changes - Object containing information about changed properties
+   */
   ngOnChanges(changes: SimpleChanges): void {
     this.resolveFields();
     this.computeGeometry();
   }
 
+  /**
+   * Resolves which fields should be used for X and Y axes.
+   * X-axis uses category fields (date, string, boolean).
+   * Y-axis uses numeric fields (number, currency, etc.).
+   * @private
+   */
   private resolveFields(): void {
     const isNumeric = (f: SelectedField) => [
       FieldDataType.NUMBER,
@@ -134,6 +186,11 @@ export class ChartPreviewComponent implements OnChanges {
     this.xField = this.fields.find(isCategory) || null;
   }
 
+  /**
+   * Computes the geometry for chart rendering.
+   * Calculates positions for bars, lines, ticks, and labels based on data and chart type.
+   * @private
+   */
   private computeGeometry(): void {
     this.barRects = [];
     this.xTicks = [];
@@ -200,6 +257,13 @@ export class ChartPreviewComponent implements OnChanges {
     }
   }
 
+  /**
+   * Formats a category value for display on the X-axis.
+   * Handles date, boolean, and string types appropriately.
+   * @param value - The raw value to format
+   * @returns Formatted string representation
+   * @private
+   */
   private formatCategory(value: any): string {
     if (value === null || value === undefined) return '';
     if (this.xField?.dataType === FieldDataType.DATE) {
@@ -212,6 +276,13 @@ export class ChartPreviewComponent implements OnChanges {
     return String(value);
   }
 
+  /**
+   * Formats a numeric value for display on the Y-axis.
+   * Uses locale-aware number formatting with rounded values.
+   * @param value - The numeric value to format
+   * @returns Formatted number string
+   * @private
+   */
   private formatNumber(value: number): string {
     return new Intl.NumberFormat().format(Math.round(value));
   }

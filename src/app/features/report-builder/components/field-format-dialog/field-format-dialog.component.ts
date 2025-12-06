@@ -8,10 +8,20 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { FieldDataType, FieldFormatting, SelectedField } from '../../../../core/models/report.models';
 
+/**
+ * Data structure passed to the FieldFormatDialogComponent.
+ * Contains the field that will be formatted.
+ */
 export interface FieldFormatDialogData {
+  /** The field to format */
   field: SelectedField;
 }
 
+/**
+ * Dialog component for configuring field formatting options.
+ * Allows users to set display names, format types, decimal places, 
+ * date formats, and currency codes based on the field's data type.
+ */
 @Component({
   selector: 'app-field-format-dialog',
   standalone: true,
@@ -93,8 +103,10 @@ export interface FieldFormatDialogData {
   `]
 })
 export class FieldFormatDialogComponent {
-  FieldDataType = FieldDataType;
+  /** Reference to FieldDataType enum for use in template */
+  FieldDataType = FieldFormatting;
 
+  /** Current formatting configuration being edited */
   format: FieldFormatting = {
     formatType: undefined,
     decimalPlaces: undefined,
@@ -102,8 +114,15 @@ export class FieldFormatDialogComponent {
     currencyCode: undefined
   };
 
+  /** Available format type options based on field data type */
   formatTypeOptions: Array<{ label: string; value: FieldFormatting['formatType'] }> = [];
 
+  /**
+   * Creates an instance of FieldFormatDialogComponent.
+   * Initializes formatting options based on the field's data type.
+   * @param data - Dialog data containing the field to format
+   * @param dialogRef - Reference to the Material Dialog for closing
+   */
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: FieldFormatDialogData,
     private dialogRef: MatDialogRef<FieldFormatDialogComponent>
@@ -135,14 +154,26 @@ export class FieldFormatDialogComponent {
     }
   }
 
+  /**
+   * Checks if a field has a numeric data type.
+   * @param field - The field to check
+   * @returns True if the field is numeric, false otherwise
+   */
   isNumeric(field: SelectedField): boolean {
     return field.dataType === FieldDataType.NUMBER || field.dataType === FieldDataType.CURRENCY || field.dataType === FieldDataType.SMALLINT || field.dataType === FieldDataType.BIGINT || field.dataType === FieldDataType.FLOAT || field.dataType === FieldDataType.DOUBLE || field.dataType === FieldDataType.DECIMAL || field.dataType === FieldDataType.NUMERIC || field.dataType === FieldDataType.MONEY;
   }
 
+  /**
+   * Closes the dialog without saving changes.
+   */
   onCancel(): void {
     this.dialogRef.close();
   }
 
+  /**
+   * Saves the formatting configuration and closes the dialog.
+   * Returns the updated field with the new formatting applied.
+   */
   onSave(): void {
     // Return updated field with new formatting
     const updatedField: SelectedField = {

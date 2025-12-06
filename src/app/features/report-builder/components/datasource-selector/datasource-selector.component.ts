@@ -373,18 +373,39 @@ import { ReportBuilderService } from "../../services/report-builder.service";
     ])
   ]
 })
+/**
+ * Component for selecting, creating, and managing data sources.
+ * Provides UI for browsing available data sources, creating new ones,
+ * editing existing ones, and configuring schema filtering options.
+ */
 export class DataSourceSelectorComponent implements OnChanges, OnInit {
+    /** Array of available data sources */
     @Input() dataSources!: DataSourceInfo[] | null;
+    
+    /** Currently selected data source (from parent component) */
     @Input() selected: DataSourceInfo | null = null;
+    
+    /** Event emitted when a data source is selected */
     @Output() dataSourceSelected = new EventEmitter<DataSourceInfo>();
+    
+    /** Event emitted when the next button is clicked */
     @Output() nextClicked = new EventEmitter<void>();
+    
+    /** Event emitted when a data source is created or updated (triggers refresh) */
     @Output() dataSourceCreated = new EventEmitter<DataSourceInfo>();
     
+    /** Currently selected data source (internal state) */
     selectedDataSource: DataSourceInfo | null = null;
 
+    /** Whether the create/edit panel is visible */
     showCreatePanel = false;
+    
+    /** Whether the form is in edit mode (vs create mode) */
     editMode = false;
+    
+    /** ID of the data source being edited (if in edit mode) */
     editingId: string | null = null;
+    /** Form data for creating/editing data sources */
     formData: { 
       name: string; 
       type: string; 
@@ -408,13 +429,25 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
       includedObjectTypes: [],
       objectNamePattern: ''
     };
+    
+    /** Schema information fetched from the database */
     fetchedSchema: SchemaInfo | null = null;
+    
+    /** Whether schema is currently being fetched */
     isFetching = false;
     
-    // Common SQL Server schemas for the dropdown
+    /** Common SQL Server schemas for the dropdown */
     commonSchemas = ['dbo', 'sys', 'guest', 'INFORMATION_SCHEMA'];
+    
+    /** Whether data source is currently being saved */
     saving = false;
 
+    /**
+     * Creates an instance of DataSourceSelectorComponent.
+     * @param reportBuilderService - Service for data source operations
+     * @param snackBar - Material Snackbar for user notifications
+     * @param dialog - Material Dialog service
+     */
     constructor(
         private reportBuilderService: ReportBuilderService, 
         private snackBar: MatSnackBar,
@@ -445,6 +478,10 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
         }
     }
 
+    /**
+     * Selects a data source and emits the selection event.
+     * @param datasource - The data source to select
+     */
     selectDataSource(datasource: DataSourceInfo): void {
         this.selectedDataSource = datasource;
         if(this.selectedDataSource) {
@@ -516,11 +553,19 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
         });
     }
 
+    /**
+     * Validates that all required fields are filled before fetching schema.
+     * @returns True if schema can be fetched, false otherwise
+     */
     canFetchSchema(): boolean {
       return !!this.formData.server && !!this.formData.database && !!this.formData.username && 
              !!this.formData.password && !!this.formData.type && !!this.formData.name;
     }
 
+    /**
+     * Fetches schema information from the database using connection details.
+     * Applies schema filtering options if specified.
+     */
     fetchSchema(): void {
       if (!this.canFetchSchema()) return;
       this.isFetching = true;
@@ -568,11 +613,19 @@ export class DataSourceSelectorComponent implements OnChanges, OnInit {
       });
     }
 
+    /**
+     * Validates that all required fields are filled and schema is fetched.
+     * @returns True if data source can be saved, false otherwise
+     */
     canSave(): boolean {
       return !!this.formData.name && !!this.formData.type && !!this.formData.server && 
              !!this.formData.database && !!this.formData.username && !!this.formData.password && !!this.fetchedSchema;
     }
 
+    /**
+     * Saves the data source (creates new or updates existing).
+     * Emits dataSourceCreated event to trigger parent refresh.
+     */
     saveDataSource(): void {
       if (!this.canSave()) return;
       this.saving = true;

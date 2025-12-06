@@ -11,6 +11,12 @@ import { MatTooltipModule } from "@angular/material/tooltip";
 import { trigger, transition, style, animate } from '@angular/animations';
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
+/**
+ * Component for building and managing filter conditions for reports.
+ * Supports multiple filter conditions with AND/OR logic, various operators
+ * (equals, contains, greater than, between, in list, etc.), and type-aware
+ * value inputs with validation. Provides real-time filter preview and summary.
+ */
 // features/report-builder/components/filter-builder/filter-builder.component.ts
 @Component({
     selector: 'app-filter-builder',
@@ -301,10 +307,16 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
     ]
 })
 export class FilterBuilderComponent implements OnInit, OnChanges {
+    /** Available fields that can be used in filter conditions */
     @Input() availableFields: SelectedField[] = [];
+    
+    /** Current filter conditions */
     @Input() filters: FilterCondition[] = [];
+    
+    /** Event emitted when filters change */
     @Output() filtersChanged = new EventEmitter<FilterCondition[]>();
 
+    /** Logic operator for combining multiple filters: 'AND' or 'OR' */
     filterLogic: 'AND' | 'OR' = 'AND';
 
     ngOnInit(): void {

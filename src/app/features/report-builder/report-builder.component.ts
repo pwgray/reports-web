@@ -15,6 +15,18 @@ import { GroupSortingComponent } from "./components/group-sorting/group-sorting.
 import { DataSourceSelectorComponent } from "./components/datasource-selector/datasource-selector.component";
 import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 
+/**
+ * Main report builder component that orchestrates the multi-step report creation process.
+ * Provides a wizard interface with 5 steps:
+ * 1. Data Source Selection - Choose or create a data source
+ * 2. Field Selection - Select fields from the schema
+ * 3. Filter Builder - Add filter conditions
+ * 4. Group & Sort - Configure grouping and sorting
+ * 5. Format & Preview - Set report metadata, layout, and preview
+ * 
+ * Supports both creating new reports and editing existing ones.
+ * Handles report state management and coordinates between child components.
+ */
 // features/report-builder/report-builder.component.ts
 @Component({
   selector: 'app-report-builder',
@@ -140,13 +152,31 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
   styleUrls: ['./report-builder.component.scss']
 })
 export class ReportBuilderComponent implements OnInit, OnDestroy {
+  /** Current step in the wizard (1-5) */
   currentStep = 1;
+  
+  /** Current report definition being built or edited */
   report: ReportDefinition = this.initializeReport();
+  
+  /** Observable of available data sources */
   dataSources$!: ReturnType<ReportBuilderService['getDataSources']>;
+  
+  /** BehaviorSubject containing the current schema information */
   schema$ = new BehaviorSubject<SchemaInfo | null>(null);
+  
+  /** Subject used to manage subscription lifecycle */
   private destroy$ = new Subject<void>();
+  
+  /** Selected preview format (currently unused but kept for compatibility) */
   selectedFormat = 'table';
 
+  /**
+   * Creates an instance of ReportBuilderComponent.
+   * @param reportBuilderService - Service for report and data source operations
+   * @param router - Angular Router for navigation
+   * @param route - ActivatedRoute for accessing route parameters
+   * @param snackBar - Material Snackbar for user notifications
+   */
   constructor(
     private reportBuilderService: ReportBuilderService,
     private router: Router,
@@ -154,6 +184,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     private snackBar: MatSnackBar
   ) { }
 
+  /**
+   * Angular lifecycle hook called after component initialization.
+   * Loads existing report if ID is provided via route parameter or navigation state.
+   * Applies template if specified in navigation state.
+   * Initializes data sources observable and updates current report in service.
+   */
   ngOnInit(): void {
     // Load by route param if present
     const routeId = this.route.snapshot.paramMap.get('id');
@@ -177,11 +213,20 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     this.reportBuilderService.updateCurrentReport(this.report);
   }
 
+  /**
+   * Angular lifecycle hook called before component destruction.
+   * Unsubscribes from all observables to prevent memory leaks.
+   */
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
   }
 
+  /**
+   * Saves the current report definition to the server.
+   * Enriches selected fields with schema information before saving if needed.
+   * Navigates to home page on success, shows error message on failure.
+   */
   saveReport() {
     // Ensure fields have schema information before saving
     const currentSchema = this.schema$.getValue();
@@ -202,30 +247,55 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Handles the data source created event.
+   * Refreshes the data sources list and selects the newly created data source.
+   * @param ds - The newly created data source
+   */
   onDataSourceCreated(ds: DataSourceInfo) {
     this.snackBar.open('Data source created', 'Close', { duration: 3000 });
     this.dataSources$ = this.reportBuilderService.getDataSources();
     this.onDataSourceSelected(ds);
   }
 
+  /**
+   * Handles grouping configuration changes from the group-sorting component.
+   * Updates the report's groupBy fields and notifies the service.
+   * @param $event - New grouping configuration
+   */
   onGroupingChanged($event: any) {
     this.report.groupBy = $event as GroupByField[];
     this.reportBuilderService.updateCurrentReport(this.report);
     this.snackBar.open('Grouping updated', 'Close', { duration: 3000 });
   }
 
+  /**
+   * Handles sorting configuration changes from the group-sorting component.
+   * Updates the report's sorting fields and notifies the service.
+   * @param $event - New sorting configuration
+   */
   onSortingChanged($event: any): void {
     this.report.sorting = $event as SortField[];
     this.reportBuilderService.updateCurrentReport(this.report);
     this.snackBar.open('Sorting updated', 'Close', { duration: 3000 });
   }
 
+  /**
+   * Handles layout configuration changes from the layout-preview component.
+   * Updates the report's layout and notifies the service.
+   * @param $event - New layout configuration
+   */
   onLayoutChanged($event: LayoutConfiguration) {
     this.report.layout = $event;
     this.reportBuilderService.updateCurrentReport(this.report);
     this.snackBar.open('Layout updated', 'Close', { duration: 3000 });
   }
 
+  /**
+   * Handles data source selection from the datasource-selector component.
+   * Updates the report's data source and loads the schema for that data source.
+   * @param dataSource - The selected data source
+   */
   onDataSourceSelected(dataSource: DataSourceInfo): void {
     this.report.dataSource = dataSource;
     if(dataSource && dataSource.id) {
@@ -233,16 +303,35 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Handles field selection changes from the field-selector component.
+   * Updates the report's selected fields and notifies the service.
+   * @param fields - Updated array of selected fields
+   */
   onFieldsChanged(fields: SelectedField[]): void {
     this.report.selectedFields = fields;
     this.reportBuilderService.updateCurrentReport(this.report);
   }
 
+  /**
+   * Handles filter changes from the filter-builder component.
+   * Updates the report's filters and notifies the service.
+   * @param filters - Updated array of filter conditions
+   */
   onFiltersChanged(filters: FilterCondition[]): void {
     this.report.filters = filters;
     this.reportBuilderService.updateCurrentReport(this.report);
   }
 
+  /**
+   * Determines if the user can proceed to the next step.
+   * Validates required fields based on the current step:
+   * - Step 1: Requires data source selection
+   * - Step 2: Requires at least one field selected
+   * - Steps 3-4: Always allowed (optional configurations)
+   * - Step 5: Requires at least one field selected
+   * @returns True if can proceed, false otherwise
+   */
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1: return !!this.report.dataSource;
@@ -254,18 +343,32 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Advances to the next step in the wizard.
+   * Only proceeds if validation passes and not on the last step.
+   */
   nextStep(): void {
     if (this.canProceed() && this.currentStep < 5) {
       this.currentStep++;
     }
   }
 
+  /**
+   * Returns to the previous step in the wizard.
+   * Does nothing if already on the first step.
+   */
   previousStep(): void {
     if (this.currentStep > 1) {
       this.currentStep--;
     }
   }
 
+  /**
+   * Loads schema information for a data source.
+   * Enriches existing selected fields with schema information if any are present.
+   * @param dataSourceId - The ID of the data source to load schema for
+   * @private
+   */
   private loadSchema(dataSourceId: string): void {
     this.reportBuilderService.getSchema(dataSourceId)
       .pipe(takeUntil(this.destroy$))
@@ -279,8 +382,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Enrich selected fields with schema information from the loaded schema
-   * This is needed for reports loaded from the database that were saved without schema info
+   * Enriches selected fields with schema information from the loaded schema.
+   * This is needed for reports loaded from the database that were saved without schema info.
+   * Creates a lookup map to handle multiple schemas for the same table name,
+   * preferring 'dbo' schema when available.
+   * @param schema - The schema information to use for enrichment
+   * @private
    */
   private enrichSelectedFieldsWithSchema(schema: SchemaInfo | null): void {
     if (!schema || !schema.tables) return;
@@ -336,6 +443,11 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Initializes a new empty report definition with default values.
+   * @returns A new ReportDefinition object with empty/default properties
+   * @private
+   */
   private initializeReport(): ReportDefinition {
     return {
       name: '',
@@ -350,6 +462,12 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     } as ReportDefinition;
   }
 
+  /**
+   * Applies a predefined template to the report layout.
+   * Sets initial layout configuration based on the template type.
+   * @param template - Template identifier: 'table', 'chart', 'chart-table', 'widgets-table', or 'dashboard'
+   * @private
+   */
   private applyTemplate(template: string) {
     // Minimal layout presets; data source/fields to be chosen in builder
     switch (template) {
@@ -372,6 +490,13 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Loads an existing report by ID from the server.
+   * Maps the API response to the builder's report model structure.
+   * Loads the schema for the report's data source after successful load.
+   * @param id - The ID of the report to load
+   * @private
+   */
   private loadExistingReport(id: string) {
     this.reportBuilderService.getReport(id).subscribe({
       next: (r) => {

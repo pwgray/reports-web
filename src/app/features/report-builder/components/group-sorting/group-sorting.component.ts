@@ -373,11 +373,26 @@ import { GroupByField, SelectedField, SortField, FieldDataType } from "../../../
     ])
   ]
 })
+/**
+ * Component for configuring grouping and sorting of report data.
+ * Supports multi-level grouping with hierarchical display,
+ * multiple sort fields with priority ordering via drag-and-drop,
+ * and provides visual feedback and summaries of organization settings.
+ */
 export class GroupSortingComponent implements OnInit, OnChanges {
+    /** Available fields that can be used for grouping or sorting */
     @Input() availableFields: SelectedField[] = [];
+    
+    /** Fields to group data by (hierarchical) */
     @Input() groupBy: GroupByField[] = [];
+    
+    /** Fields to sort data by (priority-ordered) */
     @Input() sorting: SortField[] = [];
+    
+    /** Event emitted when grouping configuration changes */
     @Output() groupingChanged = new EventEmitter<GroupByField[]>();
+    
+    /** Event emitted when sorting configuration changes */
     @Output() sortingChanged = new EventEmitter<SortField[]>();
 
     faPlus = faPlus;

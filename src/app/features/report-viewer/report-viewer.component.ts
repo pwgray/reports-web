@@ -14,6 +14,15 @@ import { MatChipsModule } from "@angular/material/chips";
 import { MatIconModule } from "@angular/material/icon";
 import { MatCardModule } from "@angular/material/card";
 
+/**
+ * Component for viewing and interacting with saved reports.
+ * Displays report data with support for:
+ * - Dynamic filter modification and application
+ * - Report metadata display (grouping, aggregations, sorting)
+ * - Excel export functionality
+ * - Navigation to report editor
+ * - Real-time preview updates when filters change
+ */
 @Component({
   selector: 'app-report-viewer',
   standalone: true,
@@ -174,8 +183,10 @@ import { MatCardModule } from "@angular/material/card";
   styleUrls: ['./report-viewer.component.scss']
 })
 export class ReportViewerComponent implements OnInit, OnDestroy {
+  /** Reference to the preview panel component for export functionality */
   @ViewChild(PreviewPanelComponent) previewPanel?: PreviewPanelComponent;
 
+  /** FontAwesome icons */
   faArrowLeft = faArrowLeft;
   faFilter = faFilter;
   faDownload = faDownload;
@@ -185,15 +196,34 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
   faChartBar = faChartBar;
   faInfoCircle = faInfoCircle;
 
+  /** Currently loaded report definition */
   report: ReportDefinition | null = null;
+  
+  /** Current filter conditions (can be modified independently of report filters) */
   currentFilters: FilterCondition[] = [];
+  
+  /** Whether the filter panel is visible */
   showFilters = false;
-  showMetadata = false; // Hide metadata by default
+  
+  /** Whether the metadata panel is visible (hidden by default) */
+  showMetadata = false;
+  
+  /** Whether the report is currently loading */
   isLoading = false;
+  
+  /** Error message if report loading fails */
   error: string | null = null;
 
+  /** Subject used to manage subscription lifecycle */
   private destroy$ = new Subject<void>();
 
+  /**
+   * Creates an instance of ReportViewerComponent.
+   * @param route - ActivatedRoute for accessing route parameters
+   * @param router - Angular Router for navigation
+   * @param reportService - Service for report operations
+   * @param snackBar - Material Snackbar for user notifications
+   */
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -201,6 +231,11 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
     private snackBar: MatSnackBar
   ) {}
 
+  /**
+   * Angular lifecycle hook called after component initialization.
+   * Subscribes to route parameter changes to load reports when navigating.
+   * Automatically loads report when route contains an ID parameter.
+   */
   ngOnInit(): void {
     // Listen to route parameter changes to reload when navigating to different reports
     // or when the same report is reloaded
@@ -216,11 +251,21 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * Angular lifecycle hook called before component destruction.
+   * Unsubscribes from all observables to prevent memory leaks.
+   */
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
   }
 
+  /**
+   * Loads a report by ID from the server.
+   * Maps the API response to the viewer's report model and initializes filters.
+   * @param id - The ID of the report to load
+   * @private
+   */
   private loadReport(id: string): void {
     this.isLoading = true;
     this.error = null;
@@ -264,18 +309,34 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * Toggles the visibility of the filter panel.
+   */
   toggleFilters(): void {
     this.showFilters = !this.showFilters;
   }
 
+  /**
+   * Toggles the visibility of the metadata panel.
+   */
   toggleMetadata(): void {
     this.showMetadata = !this.showMetadata;
   }
 
+  /**
+   * Handles filter changes from the filter-builder component.
+   * Updates local filter state but does not apply until applyFilters() is called.
+   * @param filters - Updated array of filter conditions
+   */
   onFiltersChanged(filters: FilterCondition[]): void {
     this.currentFilters = filters;
   }
 
+  /**
+   * Applies the current filters to the report.
+   * Updates the report with new filters and triggers preview refresh.
+   * Shows a notification when filters are applied.
+   */
   applyFilters(): void {
     if (this.report) {
       // Update the report with new filters
@@ -291,12 +352,20 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Navigates to the report builder to edit the current report.
+   */
   editReport(): void {
     if (this.report?.id) {
       this.router.navigate(['/builder', this.report.id]);
     }
   }
 
+  /**
+   * Exports the current report to Excel format.
+   * Delegates to the preview panel component's export functionality.
+   * Shows success/error notifications.
+   */
   exportReport(): void {
     if (!this.previewPanel) {
       this.snackBar.open('Preview panel not available', 'Close', { duration: 2000 });
@@ -313,23 +382,43 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Navigates back to the reports list page.
+   */
   goBack(): void {
     this.router.navigate(['/reports']);
   }
 
-  // Helper methods for metadata display
+  /** Helper methods for metadata display */
+  
+  /**
+   * Checks if the report has grouping configured.
+   * @returns True if report has groupBy fields, false otherwise
+   */
   hasGrouping(): boolean {
     return this.report?.groupBy && this.report.groupBy.length > 0 || false;
   }
 
+  /**
+   * Checks if the report has any aggregated fields.
+   * @returns True if any selected field has an aggregation, false otherwise
+   */
   hasAggregations(): boolean {
     return this.report?.selectedFields?.some(f => f.aggregation) ?? false;
   }
 
+  /**
+   * Checks if the report has sorting configured.
+   * @returns True if report has sort fields, false otherwise
+   */
   hasSorting(): boolean {
     return this.report?.sorting && this.report.sorting.length > 0 || false;
   }
 
+  /**
+   * Generates a hierarchical string representation of grouping levels.
+   * @returns Formatted string showing grouping hierarchy
+   */
   getGroupingHierarchy(): string {
     if (!this.report?.groupBy) return '';
     return this.report.groupBy
@@ -337,10 +426,19 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
       .join(' → ');
   }
 
+  /**
+   * Gets all selected fields that have aggregations applied.
+   * @returns Array of SelectedField objects with aggregations
+   */
   getAggregatedFields(): SelectedField[] {
     return this.report?.selectedFields?.filter(f => f.aggregation) ?? [];
   }
 
+  /**
+   * Gets a human-readable label for an aggregation type.
+   * @param aggregation - Aggregation type string (e.g., 'sum', 'avg')
+   * @returns Uppercase label for the aggregation
+   */
   getAggregationLabel(aggregation?: string): string {
     if (!aggregation) return '';
     const labels: { [key: string]: string } = {
@@ -353,6 +451,11 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
     return labels[aggregation.toLowerCase()] || aggregation.toUpperCase();
   }
 
+  /**
+   * Gets the Material icon name for an aggregation type.
+   * @param aggregation - Aggregation type string
+   * @returns Material icon name for the aggregation
+   */
   getAggregationIcon(aggregation?: string): string {
     if (!aggregation) return 'functions';
     const icons: { [key: string]: string } = {
@@ -365,6 +468,11 @@ export class ReportViewerComponent implements OnInit, OnDestroy {
     return icons[aggregation.toLowerCase()] || 'functions';
   }
 
+  /**
+   * Generates a human-readable explanation of how the report data is organized.
+   * Combines information about grouping, aggregations, and sorting into a single description.
+   * @returns Formatted explanation string describing the report organization
+   */
   getOrganizationExplanation(): string {
     const parts: string[] = [];
 

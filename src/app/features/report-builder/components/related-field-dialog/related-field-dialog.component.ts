@@ -14,17 +14,38 @@ import {
 import { RelatedTableConfig, AggregationType, FieldDataType } from '../../../../core/models/report.models';
 import { SchemaInfo } from '../../../../core/models/schema-info.model';
 
+/**
+ * Data structure passed to the RelatedFieldDialogComponent.
+ * Contains the schema and source table name for relationship discovery.
+ */
 export interface RelatedFieldDialogData {
+  /** Database schema information */
   schema: SchemaInfo;
+  
+  /** Name of the source table to find relationships from */
   sourceTableName: string;
 }
 
+/**
+ * Result structure returned by RelatedFieldDialogComponent.
+ * Contains the configuration for adding a related field to the report.
+ */
 export interface RelatedFieldDialogResult {
+  /** Configuration for the related table field */
   config: RelatedTableConfig;
+  
+  /** Display name for the field */
   displayName: string;
+  
+  /** Data type of the resulting field */
   dataType: FieldDataType;
 }
 
+/**
+ * Dialog component for adding fields from related tables.
+ * Allows users to select relationships and configure how related data 
+ * should be displayed (as aggregated values or sub-reports).
+ */
 @Component({
   selector: 'app-related-field-dialog',
   standalone: true,
@@ -418,7 +439,7 @@ export interface RelatedFieldDialogResult {
   `]
 })
 export class RelatedFieldDialogComponent {
-  // Icons
+  /** FontAwesome icons */
   faProjectDiagram = faProjectDiagram;
   faTable = faTable;
   faChartBar = faChartBar;
@@ -426,12 +447,20 @@ export class RelatedFieldDialogComponent {
   faTimes = faTimes;
   faCheck = faCheck;
 
-  // Component state
+  /** Component state */
+  /** List of relationships available from the source table */
   availableRelationships: any[] = [];
+  
+  /** Currently selected relationship */
   selectedRelationship: any = null;
+  
+  /** Fields available from the related table */
   relatedTableFields: any[] = [];
+  
+  /** Display name for the related field */
   displayName = '';
 
+  /** Configuration for the related table field */
   config: RelatedTableConfig = {
     relationshipId: '',
     relationshipName: '',
@@ -443,6 +472,12 @@ export class RelatedFieldDialogComponent {
     subReportLimit: 10
   };
 
+  /**
+   * Creates an instance of RelatedFieldDialogComponent.
+   * Loads available relationships from the schema.
+   * @param dialogRef - Reference to the Material Dialog for closing
+   * @param data - Dialog data containing schema and source table name
+   */
   constructor(
     public dialogRef: MatDialogRef<RelatedFieldDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: RelatedFieldDialogData
@@ -450,6 +485,11 @@ export class RelatedFieldDialogComponent {
     this.loadAvailableRelationships();
   }
 
+  /**
+   * Loads relationships where the source table is either parent or child.
+   * Filters the schema relationships to find relevant connections.
+   * @private
+   */
   private loadAvailableRelationships(): void {
     if (!this.data.schema?.relationships) {
       this.availableRelationships = [];
@@ -463,6 +503,10 @@ export class RelatedFieldDialogComponent {
     );
   }
 
+  /**
+   * Called when a relationship is selected from the dropdown.
+   * Loads fields from the related table and initializes configuration.
+   */
   onRelationshipSelected(): void {
     if (!this.selectedRelationship) return;
 
@@ -484,6 +528,10 @@ export class RelatedFieldDialogComponent {
     this.config.subReportFields = [];
   }
 
+  /**
+   * Called when a field is selected for aggregation.
+   * Auto-generates display name based on field and aggregation.
+   */
   onFieldSelected(): void {
     // Auto-generate display name if empty
     if (!this.displayName && this.config.relatedFieldName) {
@@ -495,6 +543,10 @@ export class RelatedFieldDialogComponent {
     }
   }
 
+  /**
+   * Sets the display mode for related data.
+   * @param mode - 'aggregate' for single value or 'subreport' for nested table
+   */
   setDisplayMode(mode: 'aggregate' | 'subreport'): void {
     this.config.displayMode = mode;
     
@@ -507,10 +559,19 @@ export class RelatedFieldDialogComponent {
     }
   }
 
+  /**
+   * Checks if a field is selected for sub-report mode.
+   * @param fieldName - Name of the field to check
+   * @returns True if the field is selected, false otherwise
+   */
   isFieldSelected(fieldName: string): boolean {
     return this.config.subReportFields?.includes(fieldName) || false;
   }
 
+  /**
+   * Toggles the selection of a field for sub-report mode.
+   * @param fieldName - Name of the field to toggle
+   */
   toggleField(fieldName: string): void {
     if (!this.config.subReportFields) {
       this.config.subReportFields = [];
@@ -524,6 +585,10 @@ export class RelatedFieldDialogComponent {
     }
   }
 
+  /**
+   * Checks if the selected related field has a numeric data type.
+   * @returns True if the field is numeric, false otherwise
+   */
   isNumericField(): boolean {
     if (!this.config.relatedFieldName || this.config.relatedFieldName === '*') {
       return false;
@@ -534,6 +599,12 @@ export class RelatedFieldDialogComponent {
     return field && numericTypes.includes(field.normalizedType || field.dataType);
   }
 
+  /**
+   * Generates a description string for a relationship.
+   * Shows the direction and target table.
+   * @param rel - The relationship object
+   * @returns Formatted description string
+   */
   getRelationshipDescription(rel: any): string {
     const isParent = rel.parentTable === this.data.sourceTableName;
     const direction = isParent ? '→' : '←';
@@ -541,6 +612,11 @@ export class RelatedFieldDialogComponent {
     return `${direction} ${otherTable}`;
   }
 
+  /**
+   * Formats an aggregation type name for display.
+   * @param agg - Aggregation type string
+   * @returns Formatted aggregation name
+   */
   formatAggregationName(agg: string): string {
     const names: Record<string, string> = {
       'count': 'Count of',
@@ -552,6 +628,10 @@ export class RelatedFieldDialogComponent {
     return names[agg] || agg;
   }
 
+  /**
+   * Validates that all required fields are filled.
+   * @returns True if configuration is valid, false otherwise
+   */
   isValid(): boolean {
     if (!this.selectedRelationship || !this.displayName) {
       return false;
@@ -564,6 +644,10 @@ export class RelatedFieldDialogComponent {
     }
   }
 
+  /**
+   * Confirms the dialog and returns the configured related field.
+   * Determines the appropriate data type and creates the result object.
+   */
   confirm(): void {
     if (!this.isValid()) return;
 
@@ -589,10 +673,19 @@ export class RelatedFieldDialogComponent {
     this.dialogRef.close(result);
   }
 
+  /**
+   * Cancels the dialog without saving.
+   */
   cancel(): void {
     this.dialogRef.close(null);
   }
 
+  /**
+   * Maps a database data type string to FieldDataType enum.
+   * @param type - Database type string
+   * @returns Corresponding FieldDataType
+   * @private
+   */
   private mapDataType(type: string): FieldDataType {
     const typeMap: Record<string, FieldDataType> = {
       'string': FieldDataType.STRING,

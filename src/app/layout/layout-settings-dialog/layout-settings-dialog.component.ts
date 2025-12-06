@@ -11,6 +11,17 @@ import { FontAwesomeModule } from "@fortawesome/angular-fontawesome";
 import { faCog, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { LayoutConfiguration } from "../../core/models/report.models";
 
+/**
+ * Dialog component for configuring report layout settings.
+ * Provides a comprehensive interface for setting:
+ * - Page configuration (orientation, size)
+ * - Report elements visibility (header, footer, page numbers, grid lines)
+ * - Margins and spacing
+ * - Font sizes
+ * - Advanced options (repeat headers, fit to page, page breaks)
+ * 
+ * Initializes with default values if not provided and allows reset to defaults.
+ */
 @Component({
   selector: 'app-layout-settings-dialog',
   imports: [
@@ -187,13 +198,20 @@ import { LayoutConfiguration } from "../../core/models/report.models";
   styleUrls: ['./layout-settings-dialog.component.scss']
 })
 export class LayoutSettingsDialogComponent {
+  /** Current layout configuration being edited */
   layout: LayoutConfiguration = {};
 
-  // FontAwesome icons
+  /** FontAwesome icons */
   faCog = faCog;
   faSave = faSave;
   faTimes = faTimes;
 
+  /**
+   * Creates an instance of LayoutSettingsDialogComponent.
+   * Initializes layout configuration with provided values or defaults.
+   * @param dialogRef - Reference to the Material Dialog for closing
+   * @param data - Dialog data containing the current layout configuration
+   */
   constructor(
     public dialogRef: MatDialogRef<LayoutSettingsDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: { layout: LayoutConfiguration }
@@ -218,14 +236,26 @@ export class LayoutSettingsDialogComponent {
     };
   }
 
+  /**
+   * Saves the layout configuration and closes the dialog.
+   * Returns the updated layout configuration to the caller.
+   */
   onSave(): void {
     this.dialogRef.close(this.layout);
   }
 
+  /**
+   * Cancels the dialog without saving changes.
+   * Closes the dialog and returns nothing.
+   */
   onCancel(): void {
     this.dialogRef.close();
   }
 
+  /**
+   * Resets the layout configuration to default values.
+   * Restores all settings to their default state.
+   */
   onReset(): void {
     this.layout = {
       orientation: 'portrait',

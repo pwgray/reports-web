@@ -2,6 +2,11 @@ import { CommonModule } from "@angular/common";
 import { Component, Input, OnChanges, SimpleChanges } from "@angular/core";
 import { AggregationType, FieldFormatting, WidgetConfig } from "../../../../core/models/report.models";
 
+/**
+ * Component for previewing dashboard widgets.
+ * Supports metric, KPI, text, and trend widget types.
+ * Automatically aggregates and formats data based on widget configuration.
+ */
 @Component({
     selector: 'app-widget-preview',
     standalone: true,
@@ -59,20 +64,40 @@ import { AggregationType, FieldFormatting, WidgetConfig } from "../../../../core
     styleUrls: ['./widget-preview.component.scss']
 })
 export class WidgetPreviewComponent implements OnChanges {
+    /** Array of data rows to display in the widget */
     @Input() data: any[] = [];
+    
+    /** Widget configuration defining type, field, aggregation, and formatting */
     @Input() config: WidgetConfig = {} as WidgetConfig;
 
-    // Computed display values
+    /** Computed display values */
+    /** Formatted value string for metric/KPI widgets */
     formattedValue: string = '';
+    
+    /** Formatted latest value for trend widgets */
     formattedLatest: string = '';
+    
+    /** Sub-label text displayed below the main value */
     subLabel: string = '';
+    
+    /** Percentage change for trend widgets (positive or negative) */
     trendDelta: number = 0;
 
-    // Sparkline
+    /** Sparkline properties */
+    /** SVG path points string for trend sparkline visualization */
     sparkPoints: string = '';
+    
+    /** Width of the sparkline in pixels */
     sparkWidth = 160;
+    
+    /** Height of the sparkline in pixels */
     sparkHeight = 40;
 
+    /**
+     * Determines if the widget has valid data to render.
+     * Text widgets always return true; other types require field configuration and data.
+     * @returns True if widget can be rendered, false otherwise
+     */
     get hasRenderableData(): boolean {
         if (!this.config) return false;
         if (this.config.type === 'text') return true;
@@ -80,10 +105,20 @@ export class WidgetPreviewComponent implements OnChanges {
         return Array.isArray(this.data) && this.data.length > 0;
     }
 
+    /**
+     * Angular lifecycle hook called when input properties change.
+     * Recomputes widget display values and visualizations.
+     * @param changes - Object containing information about changed properties
+     */
     ngOnChanges(changes: SimpleChanges): void {
         this.compute();
     }
 
+    /**
+     * Computes all display values for the widget.
+     * Aggregates data, formats values, and generates sparklines as needed.
+     * @private
+     */
     private compute(): void {
         this.formattedValue = '';
         this.formattedLatest = '';
@@ -125,6 +160,13 @@ export class WidgetPreviewComponent implements OnChanges {
         }
     }
 
+    /**
+     * Aggregates an array of numeric values using the specified aggregation function.
+     * @param values - Array of numeric values to aggregate
+     * @param agg - Aggregation type (sum, avg, count, min, max)
+     * @returns Aggregated numeric value
+     * @private
+     */
     private aggregate(values: number[], agg: AggregationType): number {
         switch (agg) {
             case AggregationType.COUNT:
@@ -141,6 +183,14 @@ export class WidgetPreviewComponent implements OnChanges {
         }
     }
 
+    /**
+     * Formats a numeric value according to the specified formatting configuration.
+     * Supports currency, percentage, decimal, and default number formatting.
+     * @param value - The numeric value to format
+     * @param fmt - Optional formatting configuration
+     * @returns Formatted string representation of the value
+     * @private
+     */
     private formatValue(value: number, fmt?: FieldFormatting): string {
         if (value === null || value === undefined || !Number.isFinite(value)) return '—';
         const decimals = Math.max(0, Math.min(6, fmt?.decimalPlaces ?? 0));
@@ -172,6 +222,12 @@ export class WidgetPreviewComponent implements OnChanges {
         }
     }
 
+    /**
+     * Builds the sub-label text for the widget.
+     * Combines aggregation type and field display name.
+     * @returns Formatted sub-label string
+     * @private
+     */
     private buildSubLabel(): string {
         if (!this.config) return '';
         if (this.config.type === 'text') return '';
@@ -181,6 +237,13 @@ export class WidgetPreviewComponent implements OnChanges {
         return parts.join(' of ');
     }
 
+    /**
+     * Generates SVG path points for a sparkline visualization.
+     * Normalizes values to fit within the sparkline dimensions.
+     * @param values - Array of numeric values to visualize
+     * @returns SVG path points string
+     * @private
+     */
     private buildSparkline(values: number[]): string {
         const w = this.sparkWidth;
         const h = this.sparkHeight;

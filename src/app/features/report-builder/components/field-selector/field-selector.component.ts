@@ -40,6 +40,13 @@ interface HierarchyNode {
   parent?: HierarchyNode;
 }
 
+/**
+ * Component for selecting and managing report fields.
+ * Provides a sidebar with available database fields organized by table,
+ * supports flat and hierarchical (relationship-based) views,
+ * and allows drag-and-drop field selection with aggregation and formatting options.
+ * Features include field search, bulk selection, and related field support.
+ */
 // features/report-builder/components/field-selector/field-selector.component.ts
 @Component({
   selector: 'app-field-selector',
@@ -421,8 +428,13 @@ interface HierarchyNode {
   styleUrls: ['./field-selector.component.scss']
 })
 export class FieldSelectorComponent implements OnInit {
+  /** Database schema information containing tables and relationships */
   @Input() schema: SchemaInfo | null = null;
+  
+  /** Currently selected fields for the report */
   @Input() selectedFields: SelectedField[] = [];
+  
+  /** Event emitted when selected fields change */
   @Output() fieldsChanged = new EventEmitter<SelectedField[]>();
 
 // FontAwesome icons

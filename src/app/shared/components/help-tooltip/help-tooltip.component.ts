@@ -1,6 +1,11 @@
 import { Component, Input } from "@angular/core";
 import { MatTooltipModule } from "@angular/material/tooltip";
 
+/**
+ * Simple help tooltip component that displays contextual help information.
+ * Uses Material Tooltip to show help text when hovering over the icon.
+ * Reusable component for providing inline help throughout the application.
+ */
 // shared/components/help-tooltip/help-tooltip.component.ts
 @Component({
   selector: 'app-help-tooltip',
@@ -16,5 +21,6 @@ import { MatTooltipModule } from "@angular/material/tooltip";
   styleUrls: ['./help-tooltip.component.scss']
 })
 export class HelpTooltipComponent {
+  /** Help text to display in the tooltip */
   @Input() helpText: string = '';
 }

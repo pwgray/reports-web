@@ -7,6 +7,15 @@ import { faPlus, faTable, faChartBar, faThLarge, faChartPie, faLayerGroup, faFil
 import { ReportDefinition, FieldDataType } from "../../core/models/report.models";
 import { ReportBuilderService } from "../report-builder/services/report-builder.service";
 
+/**
+ * Component for displaying and managing saved reports.
+ * Provides functionality for:
+ * - Viewing all saved reports in a grid layout
+ * - Starting new reports from templates or blank
+ * - Searching and sorting reports
+ * - Viewing, editing, and deleting reports
+ * - Quick actions for each report (view, edit, delete)
+ */
 @Component({
   selector: 'app-reports-list',
   standalone: true,
@@ -70,6 +79,7 @@ import { ReportBuilderService } from "../report-builder/services/report-builder.
   styleUrls: ['./reports-list.component.scss']
 })
 export class ReportsListComponent implements OnInit {
+  /** FontAwesome icons */
   faPlus = faPlus;
   faTable = faTable;
   faChartBar = faChartBar;
@@ -84,11 +94,19 @@ export class ReportsListComponent implements OnInit {
   faSortAlphaUp = faSortAlphaUp;
   faClock = faClock;
 
+  /** Search term for filtering reports and templates */
   searchTerm = '';
+  
+  /** Current sort option for reports */
   sortOption: 'name-asc' | 'name-desc' | 'newest' | 'oldest' = 'name-asc';
 
+  /** All reports loaded from the server */
   allReports: ReportDefinition[] = [];
+  
+  /** Filtered and sorted reports displayed to the user */
   reports: ReportDefinition[] = [];
+  
+  /** Available report templates that users can start from */
   templates = [
     { key: 'table' as const, title: 'Tabular Report', desc: 'Only table data', icon: this.faTable },
     { key: 'chart' as const, title: 'Chart Report', desc: 'Single chart', icon: this.faChartBar },
@@ -96,13 +114,24 @@ export class ReportsListComponent implements OnInit {
     { key: 'widgets-table' as const, title: 'Widgets + Data', desc: 'Aggregates with table', icon: this.faFileAlt },
     { key: 'dashboard' as const, title: 'Dashboard', desc: 'Multi-widget layout', icon: this.faThLarge },
   ];
+  
+  /** Filtered templates based on search term */
   filteredTemplates = this.templates.slice();
 
+  /**
+   * Creates an instance of ReportsListComponent.
+   * @param router - Angular Router for navigation
+   * @param reportService - Service for report operations
+   */
   constructor(
     private readonly router: Router,
     private readonly reportService: ReportBuilderService
   ) {}
 
+  /**
+   * Angular lifecycle hook called after component initialization.
+   * Loads all reports from the server and applies initial filters.
+   */
   ngOnInit(): void {
     this.reportService.getReports().subscribe(r => {
       this.allReports = r;
@@ -110,30 +139,62 @@ export class ReportsListComponent implements OnInit {
     });
   }
 
+  /**
+   * Navigates to the report builder to create a new blank report.
+   */
   createBlankReport() {
     this.router.navigate(['/builder']);
   }
 
+  /**
+   * Starts a new report from a predefined template.
+   * Navigates to the builder with the template information in navigation state.
+   * @param template - Template identifier to start from
+   */
   startFromTemplate(template: 'table' | 'chart' | 'chart-table' | 'widgets-table' | 'dashboard') {
     this.router.navigate(['/builder'], { state: { template } });
   }
 
+  /**
+   * Opens a report in the builder for editing.
+   * Navigates to the builder with the report ID in navigation state.
+   * @param report - The report to open
+   */
   openReport(report: ReportDefinition) {
     // Navigate to builder and load by id (builder can be extended to fetch and populate)
     this.router.navigate(['/builder'], { state: { reportId: report.id } });
   }
 
+  /**
+   * Navigates to the report viewer to view a report.
+   * Stops event propagation to prevent card click handler from firing.
+   * @param report - The report to view
+   * @param event - Mouse event to stop propagation
+   */
   viewReport(report: ReportDefinition, event: MouseEvent) {
     event.stopPropagation();
     // Navigate to the dedicated report viewer page
     this.router.navigate(['/report', report.id]);
   }
 
+  /**
+   * Navigates to the report builder to edit a report.
+   * Stops event propagation to prevent card click handler from firing.
+   * @param report - The report to edit
+   * @param event - Mouse event to stop propagation
+   */
   editReport(report: ReportDefinition, event: MouseEvent) {
     event.stopPropagation();
     this.router.navigate(['/builder', report.id], { state: { reportId: report.id } });
   }
 
+  /**
+   * Deletes a report after confirmation.
+   * Removes the report from the local list and refreshes the display.
+   * Stops event propagation to prevent card click handler from firing.
+   * @param report - The report to delete
+   * @param event - Mouse event to stop propagation
+   */
   deleteReport(report: ReportDefinition, event: MouseEvent) {
     event.stopPropagation();
     if (!report.id) return;
@@ -145,6 +206,12 @@ export class ReportsListComponent implements OnInit {
     });
   }
 
+  /**
+   * Applies search and sort filters to reports and templates.
+   * Filters both templates and reports based on the search term.
+   * Sorts reports according to the selected sort option.
+   * Updates both filteredTemplates and reports arrays.
+   */
   applyFilters() {
     const term = this.searchTerm.trim().toLowerCase();
     // Filter and sort templates

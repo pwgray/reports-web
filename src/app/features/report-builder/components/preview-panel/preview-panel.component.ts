@@ -19,6 +19,12 @@ export const MAX_PREVIEW_LIMIT = 1000000; // 1 million rows
 export const CHUNK_SIZE = 50000; // Load 50k rows at a time for better UX
 export const VIRTUAL_SCROLL_ITEM_SIZE = 48; // Height of each row in pixels
 
+/**
+ * Component for displaying live preview of report data.
+ * Supports table and chart views, virtual scrolling for large datasets,
+ * progressive loading with progress indicators, and Excel export functionality.
+ * Auto-refreshes when report configuration changes.
+ */
 // features/report-builder/components/preview-panel/preview-panel.component.ts
 @Component({
   selector: 'app-preview-panel',
@@ -201,7 +207,10 @@ export const VIRTUAL_SCROLL_ITEM_SIZE = 48; // Height of each row in pixels
   styleUrls: ['./preview-panel.component.scss']
 })
 export class PreviewPanelComponent implements OnInit, OnDestroy {
+  /** Report definition to preview */
   @Input() report: ReportDefinition = {} as ReportDefinition;
+  
+  /** Selected preview format: 'table' or 'chart' */
   @Input() selectedFormat : string = 'table';
 
 
@@ -260,10 +269,19 @@ export class PreviewPanelComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  /**
+   * Triggers a refresh of the preview data.
+   * Uses debouncing to avoid excessive API calls.
+   */
   refreshPreview(): void {
     this.refreshDebounce$.next();
   }
 
+  /**
+   * Executes the preview query and loads data.
+   * Handles loading states, progress tracking, and error handling.
+   * @private
+   */
   private executePreview(): void {
     if (!this.report.selectedFields?.length) {
       this.previewData = null;

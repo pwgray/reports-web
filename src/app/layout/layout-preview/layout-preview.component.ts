@@ -6,6 +6,18 @@ import { faEye, faCog, faTable, faChartBar, faFileAlt, faDownload } from "@forta
 import { MatDialog, MatDialogModule } from "@angular/material/dialog";
 import { LayoutSettingsDialogComponent } from "../layout-settings-dialog/layout-settings-dialog.component";
 
+/**
+ * Component for previewing report layout and structure before saving.
+ * Displays a comprehensive preview including:
+ * - Report summary (data source, fields, filters, grouping, sorting)
+ * - Report structure visualization (fields, filters, grouping, sorting)
+ * - Layout configuration display
+ * - Mock data preview with support for grouped data and aggregations
+ * - Multi-table relationship visualization
+ * 
+ * Generates intelligent mock data that respects table relationships
+ * and displays how grouped and aggregated data will appear.
+ */
 @Component({
   selector: 'app-layout-preview',
   imports: [CommonModule, FontAwesomeModule, MatDialogModule],
@@ -280,12 +292,19 @@ import { LayoutSettingsDialogComponent } from "../layout-settings-dialog/layout-
   styleUrls: ['./layout-preview.component.scss']
 })
 export class LayoutPreviewComponent {
+    /** Report definition to preview */
     @Input() report: ReportDefinition = {} as ReportDefinition;
+    
+    /** Event emitted when layout configuration changes */
     @Output() layoutChanged = new EventEmitter<LayoutConfiguration>();
 
+    /**
+     * Creates an instance of LayoutPreviewComponent.
+     * @param dialog - Material Dialog service for opening layout settings dialog
+     */
     constructor(private dialog: MatDialog) {}
 
-    // FontAwesome icons
+    /** FontAwesome icons */
     faEye = faEye;
     faCog = faCog;
     faTable = faTable;
@@ -293,6 +312,11 @@ export class LayoutPreviewComponent {
     faFileAlt = faFileAlt;
     faDownload = faDownload;
 
+    /**
+     * Gets a human-readable display name for a field data type.
+     * @param dataType - The field data type
+     * @returns Display name for the data type
+     */
     getFieldTypeDisplay(dataType: FieldDataType): string {
       switch (dataType) {
         case FieldDataType.STRING:
@@ -310,10 +334,21 @@ export class LayoutPreviewComponent {
       }
     }
 
+    /**
+     * Gets mock data for preview purposes.
+     * Delegates to relationship-aware data generation.
+     * @returns Array of mock data rows
+     */
     getMockData(): any[] {
       return this.generateRelationshipAwareMockData();
     }
 
+    /**
+     * Generates mock data that respects table relationships.
+     * Creates single-table data for simple reports or joined data for multi-table reports.
+     * @returns Array of mock data rows
+     * @private
+     */
     private generateRelationshipAwareMockData(): any[] {
       const tablesInReport = this.getTablesInReport();
       
@@ -326,6 +361,10 @@ export class LayoutPreviewComponent {
       return this.generateJoinedMockData(tablesInReport);
     }
 
+    /**
+     * Gets a list of unique table names used in the report's selected fields.
+     * @returns Array of table names
+     */
     getTablesInReport(): string[] {
       if (!this.report.selectedFields) return [];
       
@@ -339,6 +378,13 @@ export class LayoutPreviewComponent {
       return Array.from(tables);
     }
 
+    /**
+     * Generates simple mock data for a single table.
+     * Creates table-specific sample data based on common table types.
+     * @param tableName - Name of the table to generate data for
+     * @returns Array of mock data rows for the table
+     * @private
+     */
     private generateSimpleMockData(tableName: string): any[] {
       const baseData = [
         { id: 1, name: 'Sample Data 1', value: 100, date: '2024-01-15', status: true },
@@ -383,6 +429,13 @@ export class LayoutPreviewComponent {
       });
     }
 
+    /**
+     * Generates mock data that represents joined tables (master-child relationships).
+     * Creates realistic relationship data where master records have multiple child records.
+     * @param tables - Array of table names to join
+     * @returns Array of joined mock data rows
+     * @private
+     */
     private generateJoinedMockData(tables: string[]): any[] {
       // Generate master-child relationship data
       const masterTable = this.identifyMasterTable(tables);
@@ -419,6 +472,13 @@ export class LayoutPreviewComponent {
       return joinedData.slice(0, 10); // Limit to reasonable preview size
     }
 
+    /**
+     * Identifies the master table in a multi-table report.
+     * Uses a simple hierarchy: customers > orders > order_details > products.
+     * @param tables - Array of table names
+     * @returns Name of the master table
+     * @private
+     */
     private identifyMasterTable(tables: string[]): string {
       // Simple heuristic: customers > orders > order_details > products
       const hierarchy = ['customers', 'orders', 'order_details', 'products'];
@@ -432,6 +492,15 @@ export class LayoutPreviewComponent {
       return tables[0]; // Fallback to first table
     }
 
+    /**
+     * Generates related child records for a master record.
+     * Creates realistic relationship data based on table types.
+     * @param masterRecord - The master record to generate children for
+     * @param childTable - Name of the child table
+     * @param masterIndex - Index of the master record
+     * @returns Array of related child records
+     * @private
+     */
     private generateRelatedChildRecords(masterRecord: any, childTable: string, masterIndex: number): any[] {
       const childRecords: any[] = [];
       
@@ -478,6 +547,14 @@ export class LayoutPreviewComponent {
       return childRecords;
     }
 
+    /**
+     * Gets a formatted mock value for a field at a specific row index.
+     * Formats the value according to the field's data type.
+     * @param field - The field to get a value for
+     * @param rowIndex - Index of the row in the mock data
+     * @param groupIndex - Optional group index for grouped data
+     * @returns Formatted string representation of the mock value
+     */
     getMockValue(field: any, rowIndex: number, groupIndex?: number): string {
       const mockData = this.getMockData();
       const row = mockData[rowIndex % mockData.length];
@@ -510,6 +587,13 @@ export class LayoutPreviewComponent {
       }
     }
 
+    /**
+     * Formats a value according to its data type.
+     * @param value - The value to format
+     * @param dataType - The data type of the value
+     * @returns Formatted string representation
+     * @private
+     */
     private formatValue(value: any, dataType: FieldDataType): string {
       switch (dataType) {
         case FieldDataType.CURRENCY:
@@ -529,10 +613,20 @@ export class LayoutPreviewComponent {
       }
     }
 
+    /**
+     * Checks if a field is used for grouping.
+     * @param field - The field to check
+     * @returns True if the field is a group field, false otherwise
+     */
     isGroupField(field: any): boolean {
       return this.report.groupBy?.some(group => group.id === field.id) || false;
     }
 
+    /**
+     * Gets mock data organized by groups.
+     * Groups data by the first groupBy field and returns grouped structure.
+     * @returns Array of group objects, each containing a key and items array
+     */
     getGroupedMockData(): any[] {
       if (!this.report.groupBy?.length) {
         return [];
@@ -557,6 +651,14 @@ export class LayoutPreviewComponent {
       }));
     }
 
+    /**
+     * Generates a group key for a row based on the group field.
+     * Creates different group keys based on common field types.
+     * @param row - The data row
+     * @param groupField - The field used for grouping
+     * @param index - Index of the row
+     * @returns Group key string
+     */
     getGroupKey(row: any, groupField: any, index: number): string {
       // Create different group keys based on the field type
       switch (groupField.fieldName) {
@@ -571,15 +673,32 @@ export class LayoutPreviewComponent {
       }
     }
 
+    /**
+     * Gets the display value for a group at a specific index.
+     * @param groupField - The field used for grouping
+     * @param groupIndex - Index of the group
+     * @returns Display value for the group
+     */
     getGroupValue(groupField: any, groupIndex: number): string {
       const groupKey = this.getGroupedMockData()[groupIndex]?.key;
       return groupKey || `Group ${groupIndex + 1}`;
     }
 
+    /**
+     * Checks if the report has any aggregated fields.
+     * @returns True if any field has an aggregation, false otherwise
+     */
     hasAggregations(): boolean {
       return this.report.selectedFields?.some(field => field.aggregation) || false;
     }
 
+    /**
+     * Calculates and formats an aggregation value for a field.
+     * Supports sum, average, count, min, and max aggregations.
+     * @param field - The field to aggregate
+     * @param items - Array of items to aggregate
+     * @returns Formatted aggregation value string
+     */
     getAggregationValue(field: any, items: any[]): string {
       if (!field.aggregation) return '';
 
@@ -621,6 +740,10 @@ export class LayoutPreviewComponent {
       }
     }
 
+    /**
+     * Gets a comma-separated string of group by field display names.
+     * @returns Comma-separated list of group field names
+     */
     getGroupByDisplayNames(): string {
       if (!this.report.groupBy?.length) {
         return '';
@@ -628,11 +751,20 @@ export class LayoutPreviewComponent {
       return this.report.groupBy.map(g => g.displayName).join(', ');
     }
 
+    /**
+     * Placeholder for export functionality.
+     * Can be extended to trigger report export.
+     */
     exportReport(): void {
       // Placeholder for export functionality
       console.log('Export report:', this.report);
     }
 
+    /**
+     * Checks if a table is the master table in a multi-table report.
+     * @param tableName - Name of the table to check
+     * @returns True if the table is the master table, false otherwise
+     */
     isTableMaster(tableName: string): boolean {
       const tables = this.getTablesInReport();
       if (tables.length <= 1) return true;
@@ -641,6 +773,10 @@ export class LayoutPreviewComponent {
       return tableName === masterTable;
     }
 
+    /**
+     * Opens the layout settings dialog.
+     * Emits layoutChanged event when settings are saved.
+     */
     openLayoutSettings(): void {
       const dialogRef = this.dialog.open(LayoutSettingsDialogComponent, {
         width: '700px',
