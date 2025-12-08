@@ -104,7 +104,7 @@ export interface FieldFormatDialogData {
 })
 export class FieldFormatDialogComponent {
   /** Reference to FieldDataType enum for use in template */
-  FieldDataType = FieldFormatting;
+  FieldDataType = FieldDataType;
 
   /** Current formatting configuration being edited */
   format: FieldFormatting = {

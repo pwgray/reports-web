@@ -85,21 +85,63 @@ export class ReportBuilderService {
    * @returns Observable that emits the saved ReportDefinition
    */
   saveReport(report: ReportDefinition): Observable<ReportDefinition> {
-    // Transform ReportDefinition to API Report structure
+    // Extract dataSourceId from dataSource object
+    const dataSourceId = report.dataSource?.id;
+    if (!dataSourceId) {
+      throw new Error('Report must have a valid data source ID');
+    }
+
+    // Transform selectedFields to match FieldConfigurationDto structure
+    // DTO expects: name, alias, type (all strings)
+    const fields = report.selectedFields.map(field => {
+      // Build fully qualified field name: schema.tableName.fieldName or tableName.fieldName
+      const fieldName = field.schema 
+        ? `${field.schema}.${field.tableName}.${field.fieldName}`
+        : `${field.tableName}.${field.fieldName}`;
+      
+      return {
+        name: fieldName,
+        alias: field.displayName || field.fieldName,
+        type: typeof field.dataType === 'string' ? field.dataType : String(field.dataType)
+      };
+    });
+
+    // Extract unique schema-qualified table names from selectedFields
+    const tableSet = new Set<string>();
+    report.selectedFields.forEach(field => {
+      const tableName = field.schema 
+        ? `${field.schema}.${field.tableName}`
+        : field.tableName;
+      tableSet.add(tableName);
+    });
+    const tables = Array.from(tableSet);
+
+    // Transform filters to match FilterConfigurationDto structure
+    // DTO expects: field (string), operator (string), value (any)
+    const filters = (report.filters || []).map(filter => {
+      // Build fully qualified field name from filter.field
+      const fieldName = filter.field.schema 
+        ? `${filter.field.schema}.${filter.field.tableName}.${filter.field.fieldName}`
+        : `${filter.field.tableName}.${filter.field.fieldName}`;
+      
+      return {
+        field: fieldName,
+        operator: typeof filter.operator === 'string' ? filter.operator : String(filter.operator),
+        value: filter.value
+      };
+    });
+
+    // Transform ReportDefinition to API Report structure matching CreateReportDto
     const apiReport = {
       id: report.id,
       name: report.name,
-      description: report.description,
-      dataSource: report.dataSource,
-      selectedFields: report.selectedFields,
-      // Map layout to layoutConfig for API
-      layoutConfig: report.layout,
-      // Map other fields to queryConfig
+      description: report.description || '',
+      dataSourceId: dataSourceId, // DTO expects dataSourceId as UUID string
+      layoutConfig: report.layout || {},
       queryConfig: {
-        fields: report.selectedFields,
-        filters: report.filters,
-        groupBy: report.groupBy,
-        orderBy: report.sorting
+        fields: fields,
+        tables: tables,
+        filters: filters
       },
       parameters: report.parameters || []
     };

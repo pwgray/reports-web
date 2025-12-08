@@ -241,8 +241,10 @@ export class ReportBuilderComponent implements OnInit, OnDestroy {
         this.snackBar.open('Report saved', 'Close', { duration: 3000 });
         this.router.navigateByUrl('/');
       },
-      error: () => {
-        this.snackBar.open('Failed to save report', 'Close', { duration: 3000 });
+      error: (error) => {
+        console.error('Failed to save report:', error);
+        const errorMessage = error?.error?.message || error?.message || 'Failed to save report';
+        this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
       }
     });
   }
