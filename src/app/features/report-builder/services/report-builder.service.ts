@@ -86,10 +86,37 @@ export class ReportBuilderService {
    */
   saveReport(report: ReportDefinition): Observable<ReportDefinition> {
     // Extract dataSourceId from dataSource object
-    const dataSourceId = report.dataSource?.id;
+    let dataSourceId = report.dataSource?.id;
+    
+    console.log('💾 Saving report - dataSource:', report.dataSource);
+    console.log('💾 Saving report - dataSourceId (raw):', dataSourceId, 'Type:', typeof dataSourceId);
+    
     if (!dataSourceId) {
-      throw new Error('Report must have a valid data source ID');
+      console.error('❌ No dataSourceId found in report.dataSource:', report.dataSource);
+      throw new Error('Report must have a valid data source ID. Please select a data source.');
     }
+    
+    // Ensure dataSourceId is a string and validate UUID format
+    dataSourceId = String(dataSourceId).trim();
+    
+    // UUID validation regex (supports both with and without dashes, but standardizes to with dashes)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidWithoutDashesRegex = /^[0-9a-f]{32}$/i;
+    
+    // If it's a UUID without dashes, add them
+    if (uuidWithoutDashesRegex.test(dataSourceId)) {
+      console.log('📝 Converting UUID without dashes to standard format');
+      dataSourceId = `${dataSourceId.substring(0, 8)}-${dataSourceId.substring(8, 12)}-${dataSourceId.substring(12, 16)}-${dataSourceId.substring(16, 20)}-${dataSourceId.substring(20, 32)}`;
+    }
+    
+    // Validate it's a proper UUID format
+    if (!uuidRegex.test(dataSourceId)) {
+      console.error('❌ Invalid dataSourceId format:', dataSourceId);
+      console.error('❌ Original dataSource object:', report.dataSource);
+      throw new Error(`Invalid data source ID format. Expected UUID format (e.g., 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'), got: '${dataSourceId}'. Please ensure you have selected a valid data source.`);
+    }
+    
+    console.log('✅ Valid dataSourceId:', dataSourceId);
 
     // Transform selectedFields to match FieldConfigurationDto structure
     // DTO expects: name, alias, type (all strings)
